@@ -51,7 +51,7 @@ jobs:
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true"
 
-            - name: Terraform Plan
+      - name: Terraform Plan
         run: terraform plan -input=false -var-file="management.tfvars" -out=tfplan
 
       - name: Upload Plan Artifact
@@ -102,5 +102,5 @@ jobs:
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true"
 
-            - name: Terraform Apply
+      - name: Terraform Apply
         run: terraform apply -input=false -auto-approve tfplan
