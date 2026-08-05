@@ -1,4 +1,4 @@
-name: 'Terraform Azure OIDC'
+name: 'Platform Landing Zone'
 
 on:
   push:
@@ -12,10 +12,11 @@ permissions:
   contents: read
 
 env:
-  ARM_CLIENT_ID:       ${{ secrets.ALZ_AZURE_CLIENT_ID }}       # the ELEVATED deploy SP (Owner + UAA at mg-02)
-  ARM_SUBSCRIPTION_ID: ${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}
+  ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
   ARM_USE_OIDC:        true
+  ARM_USE_AZUREAD:     true
 
 defaults:
   run:
@@ -32,9 +33,9 @@ jobs:
       - name: 'Az CLI login'
         uses: azure/login@v2
         with:
-          client-id:       ${{ secrets.ALZ_AZURE_CLIENT_ID }}
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -43,11 +44,10 @@ jobs:
         run: |
           terraform init \
             -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="subscription_id=${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}" \
-            -backend-config="resource_group_name=${{ secrets.ALZ_STATE_RG }}" \
             -backend-config="storage_account_name=${{ secrets.STORAGE_ACCOUNT_STATE }}" \
-            -backend-config="container_name=${{ secrets.ALZ_STATE_CONTAINER }}" \
+            -backend-config="container_name=${{ secrets.CONTAINER_STATE }}" \
             -backend-config="key=platform-landing-zone.tfstate" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true"
 
@@ -64,10 +64,10 @@ jobs:
   apply:
     name: 'Apply'
     needs: plan
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Gated twice: a repo variable switch AND the production environment approval.
+    # Apply stays OFF until you create repo variable ENABLE_APPLY=true.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.ENABLE_APPLY == 'true'
     runs-on: ubuntu-latest
-
-    # Requires manual approval via GitHub Environment protection rules
     environment: production
 
     steps:
@@ -77,9 +77,9 @@ jobs:
       - name: 'Az CLI login'
         uses: azure/login@v2
         with:
-          client-id:       ${{ secrets.ALZ_AZURE_CLIENT_ID }}
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -94,11 +94,10 @@ jobs:
         run: |
           terraform init \
             -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="subscription_id=${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}" \
-            -backend-config="resource_group_name=${{ secrets.ALZ_STATE_RG }}" \
             -backend-config="storage_account_name=${{ secrets.STORAGE_ACCOUNT_STATE }}" \
-            -backend-config="container_name=${{ secrets.ALZ_STATE_CONTAINER }}" \
+            -backend-config="container_name=${{ secrets.CONTAINER_STATE }}" \
             -backend-config="key=platform-landing-zone.tfstate" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true"
 
