@@ -1,0 +1,106 @@
+name: 'Terraform Azure OIDC'
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "platform/**" ]
+  workflow_dispatch:
+
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ARM_CLIENT_ID:       ${{ secrets.ALZ_AZURE_CLIENT_ID }}       # the ELEVATED deploy SP (Owner + UAA at mg-02)
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+  ARM_USE_OIDC:        true
+
+defaults:
+  run:
+    working-directory: platform
+
+jobs:
+  plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.ALZ_AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="subscription_id=${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}" \
+            -backend-config="resource_group_name=${{ secrets.ALZ_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.STORAGE_ACCOUNT_STATE }}" \
+            -backend-config="container_name=${{ secrets.ALZ_STATE_CONTAINER }}" \
+            -backend-config="key=platform-landing-zone.tfstate" \
+            -backend-config="use_azuread_auth=true" \
+            -backend-config="use_oidc=true"
+
+            - name: Terraform Plan
+        run: terraform plan -input=false -var-file="management.tfvars" -out=tfplan
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alz-tfplan
+          path: platform/tfplan
+          retention-days: 1
+
+  apply:
+    name: 'Apply'
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    # Requires manual approval via GitHub Environment protection rules
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 'Az CLI login'
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.ALZ_AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: alz-tfplan
+          path: platform
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="subscription_id=${{ secrets.ALZ_MANAGEMENT_SUBSCRIPTION_ID }}" \
+            -backend-config="resource_group_name=${{ secrets.ALZ_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.STORAGE_ACCOUNT_STATE }}" \
+            -backend-config="container_name=${{ secrets.ALZ_STATE_CONTAINER }}" \
+            -backend-config="key=platform-landing-zone.tfstate" \
+            -backend-config="use_azuread_auth=true" \
+            -backend-config="use_oidc=true"
+
+            - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve tfplan

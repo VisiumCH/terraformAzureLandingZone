@@ -1,0 +1,21 @@
+name: visium
+# Visium adoption architecture.
+# Rooted at the existing intermediate management group "mg-02" (set via
+# root_parent_management_group_id in the tfvars). Both groups already exist in
+# the tenant, so exists=true => the module ADOPTS them and applies the archetype
+# (policy) WITHOUT recreating or moving anything. Sandbox / data-platform live
+# outside mg-02 and are intentionally out of scope for this first (Phase 1) pass.
+management_groups:
+  - id: platform
+    display_name: Platform
+    archetypes:
+      - platform_custom
+    exists: true
+    parent_id: null
+
+  - id: landing-zones
+    display_name: landing-zones
+    archetypes:
+      - landing_zones_custom
+    exists: true
+    parent_id: null
