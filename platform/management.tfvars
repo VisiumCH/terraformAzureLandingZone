@@ -1,80 +1,37 @@
-/*
---- Built-in Replacements ---
-This file contains built-in replacements to avoid repeating the same hard-coded values.
-Replacements are denoted by the dollar-dollar curly braces token (e.g. $${starter_location_01}). The following details each built-in replacements that you can use:
-`starter_location_01`: This the primary an Azure location sourced from the `starter_locations` variable. This can be used to set the location of resources.
-`starter_location_02` to `starter_location_##`: These are the secondary Azure locations sourced from the `starter_locations` variable. This can be used to set the location of resources.
-`starter_location_01_short`: Short code for the primary Azure location. Defaults to the region geo_code, or short_name if no geo_code is available. Can be overridden via the starter_locations_short variable.
-`starter_location_02_short` to `starter_location_##_short`: Short codes for the secondary Azure locations. Same behavior and override rules as starter_location_01_short.
-`root_parent_management_group_id`: This is the id of the management group that the ALZ hierarchy will be nested under.
-`subscription_id_identity`: The subscription ID of the subscription to deploy the identity resources to, sourced from the variable `subscription_ids`.
-`subscription_id_connectivity`: The subscription ID of the subscription to deploy the connectivity resources to, sourced from the variable `subscription_ids`.
-`subscription_id_management`: The subscription ID of the subscription to deploy the management resources to, sourced from the variable `subscription_ids`.
-`subscription_id_security`: The subscription ID of the subscription to deploy the security resources to, sourced from the variable `subscription_ids`.
-*/
+# Visium greenfield platform landing zone — inputs for the ALZ accelerator.
+# Tokens like $${starter_location_01} are accelerator built-in replacements.
 
-/*
---- Starter Locations ---
-You can define the Azure regions to use throughout the configuration.
-The first location will be used as the primary location, the second as the secondary location, and so on.
-*/
 starter_locations = ["switzerlandnorth"]
 
-# --- Target intermediate root (existing "Subtenant management group") ---
-root_parent_management_group_id = "mg-02"
+# The `visium` intermediate root is created directly under the TENANT ROOT
+# (tenant-root management-group id == the Entra tenant id).
+root_parent_management_group_id = "b7418ead-a445-4708-a309-951ab14852eb"
 
-# --- Platform subscription(s) ---
-# Only "management" is required for this management-only pass. Designate
-# connectivity / identity subs later when you add networking.
+# `connectivity`/`identity` are reserved; pointed at Management so the module's
+# providers resolve while connectivity_type = "none" (no resources deployed there).
 subscription_ids = {
-  management = "fe2f1af2-1bb4-4502-b622-383217ac1f0b" # "Management"
+  management   = "8745729a-505a-4910-aaaf-d53b9cdc8883"
+  connectivity = "8745729a-505a-4910-aaaf-d53b9cdc8883"
+  identity     = "8745729a-505a-4910-aaaf-d53b9cdc8883"
 }
 
-
-/*
---- Custom Replacements ---
-You can define custom replacements to use throughout the configuration.
-*/
 custom_replacements = {
-  /*
-  --- Custom Name Replacements ---
-  You can define custom names and other strings to use throughout the configuration.
-  You can only use the built in replacements in this section.
-  NOTE: You cannot refer to another custom name in this variable.
-  */
   names = {
-    # Defender email security contact
     defender_email_security_contact = "cloud@visium.ch"
 
-    # Resource group names
     management_resource_group_name            = "rg-management-$${starter_location_01}"
     asc_export_resource_group_name            = "rg-asc-export-$${starter_location_01}"
     service_health_alerts_resource_group_name = "rg-service-health-alerts-$${starter_location_01}"
 
-    # Resource names
     log_analytics_workspace_name            = "law-management-$${starter_location_01}"
     ama_user_assigned_managed_identity_name = "uami-management-ama-$${starter_location_01}"
     dcr_change_tracking_name                = "dcr-change-tracking"
     dcr_defender_sql_name                   = "dcr-defender-sql"
     dcr_vm_insights_name                    = "dcr-vm-insights"
   }
-
-  /*
-  --- Custom Resource Group Identifier Replacements ---
-  You can define custom resource group identifiers to use throughout the configuration.
-  You can only use the templated variables and custom names in this section.
-  NOTE: You cannot refer to another custom resource group identifier in this variable.
-  */
   resource_group_identifiers = {
     management_resource_group_id = "/subscriptions/$${subscription_id_management}/resourcegroups/$${management_resource_group_name}"
   }
-
-  /*
-  --- Custom Resource Identifier Replacements ---
-  You can define custom resource identifiers to use throughout the configuration.
-  You can only use the templated variables, custom names and customer resource group identifiers in this variable.
-  NOTE: You cannot refer to another custom resource identifier in this variable.
-  */
   resource_identifiers = {
     ama_change_tracking_data_collection_rule_id = "$${management_resource_group_id}/providers/Microsoft.Insights/dataCollectionRules/$${dcr_change_tracking_name}"
     ama_mdfc_sql_data_collection_rule_id        = "$${management_resource_group_id}/providers/Microsoft.Insights/dataCollectionRules/$${dcr_defender_sql_name}"
@@ -84,56 +41,40 @@ custom_replacements = {
   }
 }
 
-/*
---- Tags ---
-This variable can be used to apply tags to all resources that support it. Some resources allow overriding these tags.
-*/
+# Chargeback tags are also enforced hierarchy-wide via policy (see root_custom archetype).
 tags = {
-  deployed_by = "terraform"
-  source      = "Azure Landing Zones Accelerator"
+  deployed_by   = "terraform"
+  project       = "platform-landing-zone"
+  "cost-center" = "platform"
+  environment   = "platform"
+  owner         = "cloud@visium.ch"
 }
 
-/*
---- Management Resources ---
-You can use this section to customize the management resources that will be deployed.
-*/
+# Central Log Analytics workspace + Sentinel onboarding live in Terraform.
+# Sentinel data connectors are configured separately (module doesn't manage them).
 management_resources_enabled = true
 
 management_resource_settings = {
   location                     = "$${starter_location_01}"
   log_analytics_workspace_name = "$${log_analytics_workspace_name}"
   resource_group_name          = "$${management_resource_group_name}"
+  sentinel_onboarding = {
+    name = "sentinel-management"
+  }
   user_assigned_managed_identities = {
-    ama = {
-      name = "$${ama_user_assigned_managed_identity_name}"
-    }
+    ama = { name = "$${ama_user_assigned_managed_identity_name}" }
   }
   data_collection_rules = {
-    change_tracking = {
-      name = "$${dcr_change_tracking_name}"
-    }
-    defender_sql = {
-      name = "$${dcr_defender_sql_name}"
-    }
-    vm_insights = {
-      name = "$${dcr_vm_insights_name}"
-    }
+    change_tracking = { name = "$${dcr_change_tracking_name}" }
+    defender_sql    = { name = "$${dcr_defender_sql_name}" }
+    vm_insights     = { name = "$${dcr_vm_insights_name}" }
   }
 }
 
-/*
---- Management Groups and Policy ---
-You can use this section to customize the management groups and policies that will be deployed.
-You can further configure management groups and policy by supplying a `lib` folder. This is detailed in the Accelerator documentation.
-*/
 management_groups_enabled = true
 
 management_group_settings = {
-  # This is the name of the architecture that will be used to deploy the management resources.
-  # It refers to the alz_custom.alz_architecture_definition.yaml file in the lib folder.
-  # Do not change this value unless you have created another architecture definition
-  # with the name value specified below.
-  architecture_name  = "visium"
+  architecture_name  = "visium" # lib/architecture_definitions/visium.alz_architecture_definition.yaml
   location           = "$${starter_location_01}"
   parent_resource_id = "$${root_parent_management_group_id}"
   policy_default_values = {
@@ -147,45 +88,24 @@ management_group_settings = {
     resource_group_name_mdfc                    = "$${asc_export_resource_group_name}"
     resource_group_location                     = "$${starter_location_01}"
     email_security_contact                      = "$${defender_email_security_contact}"
-    /*
-    # Example of allowed locations for Sovereign Landing Zones policies
-    allowed_locations = [
-      "$${starter_location_01}"
-    ]
-    */
   }
+  # Core build places only the Management sub. The 14 existing subs are migrated
+  # from mg-02 into corp/online later, one at a time; the credits sub lands in online.
   subscription_placement = {
     management = {
-      subscription_id       = "fe2f1af2-1bb4-4502-b622-383217ac1f0b" # Management
-      management_group_name = "platform"
+      subscription_id       = "8745729a-505a-4910-aaaf-d53b9cdc8883"
+      management_group_name = "management"
     }
-    visium_consulting = {
-      subscription_id       = "f12e214d-46c6-49bf-a083-f89cf9c3179d"
-      management_group_name = "landing-zones"
-    }
-    visium_labs = {
-      subscription_id       = "8aee18d5-5638-4540-98e9-f01ffc697054"
-      management_group_name = "landing-zones"
-    }
-    visium_labs_staging = {
-      subscription_id       = "4886dea2-bb7f-410c-8208-31efbcf12c18"
-      management_group_name = "landing-zones"
-    }
-    centris_dev = {
-      subscription_id       = "37e9c5c5-4c45-4bf2-816c-548f8a79d21c"
-      management_group_name = "landing-zones"
-    }
-    visium_labs_demo = {
-      subscription_id       = "58f6837f-7c34-42f4-924b-5bad6bc499f3"
-      management_group_name = "landing-zones"
-    }
-    lonza_devin_pilot = {
-      subscription_id       = "04a79504-683e-460e-88a7-688360fc0811"
-      management_group_name = "landing-zones"
+    online = {
+      subscription_id       = "fc00db1c-50de-4379-8670-376f62c6b514"
+      management_group_name = "online"
     }
   }
+  # Keys are management-group ids from the architecture definition.
+  # Deny policies start non-blocking (audit): add `enforcement_mode = "DoNotEnforce"`
+  # per Deny-* assignment once the first plan lists them.
   policy_assignments_to_modify = {
-    alz = {
+    visium = {
       policy_assignments = {
         Deploy-MDFC-Config-H224 = {
           parameters = {
@@ -207,37 +127,20 @@ management_group_settings = {
     }
     connectivity = {
       policy_assignments = {
-        Enable-DDoS-VNET = {
-          creation_enabled = false
-        }
+        Enable-DDoS-VNET = { creation_enabled = false }
       }
     }
-    landingzones = {
+    "landing-zones" = {
       policy_assignments = {
-        Enable-DDoS-VNET = {
-          creation_enabled = false
-        }
+        Enable-DDoS-VNET = { creation_enabled = false }
       }
     }
     corp = {
       policy_assignments = {
-        Deploy-Private-DNS-Zones = {
-          creation_enabled = false
-        }
+        Deploy-Private-DNS-Zones = { creation_enabled = false }
       }
     }
   }
-  /*
-  # Example of how to add management group role assignments
-  management_group_role_assignments = {
-    root_owner_role_assignment = {
-      management_group_name      = "root"
-      role_definition_id_or_name = "Owner"
-      principal_id               = "00000000-0000-0000-0000-000000000000"
-    }
-  }
-  */
-  # role_assignment_name_use_random_uuid = false  # Uncomment this for backwards compatibility with previous naming convention
 }
 
 connectivity_type = "none"

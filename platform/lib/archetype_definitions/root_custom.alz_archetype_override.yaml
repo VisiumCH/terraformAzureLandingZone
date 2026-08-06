@@ -1,3 +1,7 @@
+# Mandatory chargeback tags (project, cost-center, environment, owner) are
+# enforced from the root via Modify/Append. To enable: add one built-in
+# "Inherit a tag from the resource group" assignment per tag under lib/ and
+# list their names in policy_assignments_to_add.
 base_archetype: root
 name: root_custom
 policy_assignments_to_add: []

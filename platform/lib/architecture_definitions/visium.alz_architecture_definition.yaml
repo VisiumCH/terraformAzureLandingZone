@@ -1,21 +1,69 @@
 name: visium
-# Visium adoption architecture.
-# Rooted at the existing intermediate management group "mg-02" (set via
-# root_parent_management_group_id in the tfvars). Both groups already exist in
-# the tenant, so exists=true => the module ADOPTS them and applies the archetype
-# (policy) WITHOUT recreating or moving anything. Sandbox / data-platform live
-# outside mg-02 and are intentionally out of scope for this first (Phase 1) pass.
+# Greenfield hierarchy created new under the tenant root (parent_resource_id),
+# alongside the untouched mg-02 tree. All groups exist:false => created here.
+#
+# visium
+# ├── platform ── management / connectivity / identity
+# ├── landing-zones ── corp / online
+# ├── sandbox
+# └── decommissioned
 management_groups:
-  - id: platform
-    display_name: Platform
-    archetypes:
-      - platform_custom
-    exists: true
+  - id: visium
+    display_name: Visium
+    archetypes: [root_custom]
+    exists: false
     parent_id: null
 
+  - id: platform
+    display_name: Platform
+    archetypes: [platform_custom]
+    exists: false
+    parent_id: visium
+
+  - id: management
+    display_name: Management
+    archetypes: [management_custom]
+    exists: false
+    parent_id: platform
+
+  - id: connectivity
+    display_name: Connectivity
+    archetypes: [connectivity_custom]
+    exists: false
+    parent_id: platform
+
+  - id: identity
+    display_name: Identity
+    archetypes: [identity_custom]
+    exists: false
+    parent_id: platform
+
   - id: landing-zones
-    display_name: landing-zones
-    archetypes:
-      - landing_zones_custom
-    exists: true
-    parent_id: null
+    display_name: Landing Zones
+    archetypes: [landing_zones_custom]
+    exists: false
+    parent_id: visium
+
+  - id: corp
+    display_name: Corp
+    archetypes: [corp_custom]
+    exists: false
+    parent_id: landing-zones
+
+  - id: online
+    display_name: Online
+    archetypes: [online_custom]
+    exists: false
+    parent_id: landing-zones
+
+  - id: sandbox
+    display_name: Sandbox
+    archetypes: [sandbox_custom]
+    exists: false
+    parent_id: visium
+
+  - id: decommissioned
+    display_name: Decommissioned
+    archetypes: [decommissioned_custom]
+    exists: false
+    parent_id: visium

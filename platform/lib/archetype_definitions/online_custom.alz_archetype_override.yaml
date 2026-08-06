@@ -1,3 +1,6 @@
+# Product carve-out: keep `online` permissive. List any Deny-*/Allowed-*
+# assignments (from the first plan) below to remove them, or set them to
+# DoNotEnforce in management.tfvars for audit-only instead.
 base_archetype: online
 name: online_custom
 policy_assignments_to_add: []
