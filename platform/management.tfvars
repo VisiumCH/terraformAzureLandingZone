@@ -17,7 +17,7 @@ subscription_ids = {
 
 custom_replacements = {
   names = {
-    defender_email_security_contact = "cloud@visium.ch"
+    defender_email_security_contact = "pascal.rodriguez@visium.ch"
 
     management_resource_group_name            = "rg-management-$${starter_location_01}"
     asc_export_resource_group_name            = "rg-asc-export-$${starter_location_01}"
