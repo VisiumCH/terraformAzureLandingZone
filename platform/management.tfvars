@@ -91,16 +91,13 @@ management_group_settings = {
   }
   # Core build places only the Management sub. The 14 existing subs are migrated
   # from mg-02 into corp/online later, one at a time; the credits sub lands in online.
-  subscription_placement = {
-    management = {
-      subscription_id       = "8745729a-505a-4910-aaaf-d53b9cdc8883"
-      management_group_name = "visium-management"
-    }
-    online = {
-      subscription_id       = "fc00db1c-50de-4379-8670-376f62c6b514"
-      management_group_name = "visium-online"
-    }
-  }
+  # Subscription moves are deferred: moving a sub into an MG needs UNCONSTRAINED
+  # roleAssignments write/delete on the sub, which the deploy SP's conditioned
+  # role assignments don't grant. Move sub-visium-management -> visium-management
+  # and sub-visium-online -> visium-online manually (or re-add here once the SP
+  # has unconditioned User Access Administrator / Owner). Deferring does not
+  # affect the LAW/Sentinel that deploy into the management sub.
+  subscription_placement = {}
   # Keys are management-group ids from the architecture definition.
   # Deny policies start non-blocking (audit): add `enforcement_mode = "DoNotEnforce"`
   # per Deny-* assignment once the first plan lists them.
