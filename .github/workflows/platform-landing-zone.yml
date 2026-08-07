@@ -81,6 +81,20 @@ jobs:
           tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # The greenfield management subscription needs its resource providers
+      # registered before the (azapi-created) DCRs/Sentinel can deploy. The SP
+      # has Contributor on the sub, so register synchronously here (--wait).
+      - name: Register resource providers (management subscription)
+        run: |
+          for ns in Microsoft.Insights Microsoft.OperationalInsights \
+                    Microsoft.ManagedIdentity Microsoft.OperationsManagement \
+                    Microsoft.SecurityInsights Microsoft.Security \
+                    Microsoft.AlertsManagement Microsoft.PolicyInsights \
+                    Microsoft.GuestConfiguration Microsoft.Automation; do
+            az provider register --namespace "$ns" \
+              --subscription 8745729a-505a-4910-aaaf-d53b9cdc8883 --wait
+          done
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 

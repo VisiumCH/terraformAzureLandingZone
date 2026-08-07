@@ -59,7 +59,7 @@ management_resource_settings = {
   log_analytics_workspace_name = "$${log_analytics_workspace_name}"
   resource_group_name          = "$${management_resource_group_name}"
   sentinel_onboarding = {
-    name = "sentinel-management"
+    name = "default" # Azure only accepts the onboarding state name "default"
   }
   user_assigned_managed_identities = {
     ama = { name = "$${ama_user_assigned_managed_identity_name}" }
