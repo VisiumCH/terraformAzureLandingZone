@@ -94,11 +94,11 @@ management_group_settings = {
   subscription_placement = {
     management = {
       subscription_id       = "8745729a-505a-4910-aaaf-d53b9cdc8883"
-      management_group_name = "management"
+      management_group_name = "visium-management"
     }
     online = {
       subscription_id       = "fc00db1c-50de-4379-8670-376f62c6b514"
-      management_group_name = "online"
+      management_group_name = "visium-online"
     }
   }
   # Keys are management-group ids from the architecture definition.
@@ -125,17 +125,17 @@ management_group_settings = {
         }
       }
     }
-    connectivity = {
+    "visium-connectivity" = {
       policy_assignments = {
         Enable-DDoS-VNET = { creation_enabled = false }
       }
     }
-    "landing-zones" = {
+    "visium-landing-zones" = {
       policy_assignments = {
         Enable-DDoS-VNET = { creation_enabled = false }
       }
     }
-    corp = {
+    "visium-corp" = {
       policy_assignments = {
         Deploy-Private-DNS-Zones = { creation_enabled = false }
       }

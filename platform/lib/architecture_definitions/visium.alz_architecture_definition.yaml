@@ -1,6 +1,9 @@
 name: visium
 # Greenfield hierarchy created new under the tenant root (parent_resource_id),
 # alongside the untouched mg-02 tree. All groups exist:false => created here.
+# IDs are prefixed `visium-` because management-group IDs are TENANT-GLOBAL and
+# the old structure already uses `platform` / `landing-zones` / `sandbox`.
+# Display names stay clean.
 #
 # visium
 # ├── platform ── management / connectivity / identity
@@ -14,55 +17,55 @@ management_groups:
     exists: false
     parent_id: null
 
-  - id: platform
+  - id: visium-platform
     display_name: Platform
     archetypes: [platform_custom]
     exists: false
     parent_id: visium
 
-  - id: management
+  - id: visium-management
     display_name: Management
     archetypes: [management_custom]
     exists: false
-    parent_id: platform
+    parent_id: visium-platform
 
-  - id: connectivity
+  - id: visium-connectivity
     display_name: Connectivity
     archetypes: [connectivity_custom]
     exists: false
-    parent_id: platform
+    parent_id: visium-platform
 
-  - id: identity
+  - id: visium-identity
     display_name: Identity
     archetypes: [identity_custom]
     exists: false
-    parent_id: platform
+    parent_id: visium-platform
 
-  - id: landing-zones
+  - id: visium-landing-zones
     display_name: Landing Zones
     archetypes: [landing_zones_custom]
     exists: false
     parent_id: visium
 
-  - id: corp
+  - id: visium-corp
     display_name: Corp
     archetypes: [corp_custom]
     exists: false
-    parent_id: landing-zones
+    parent_id: visium-landing-zones
 
-  - id: online
+  - id: visium-online
     display_name: Online
     archetypes: [online_custom]
     exists: false
-    parent_id: landing-zones
+    parent_id: visium-landing-zones
 
-  - id: sandbox
+  - id: visium-sandbox
     display_name: Sandbox
     archetypes: [sandbox_custom]
     exists: false
     parent_id: visium
 
-  - id: decommissioned
+  - id: visium-decommissioned
     display_name: Decommissioned
     archetypes: [decommissioned_custom]
     exists: false

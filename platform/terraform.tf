@@ -45,9 +45,23 @@ provider "azurerm" {
 }
 
 provider "azurerm" {
+  # The management subscription is greenfield, so the resource providers the
+  # management resources need aren't registered yet. Register them via the SP
+  # (which has write access on the sub) rather than requiring a manual step.
   resource_provider_registrations = "none"
-  alias                           = "management"
-  subscription_id                 = var.subscription_ids["management"]
+  resource_providers_to_register = [
+    "Microsoft.OperationalInsights",
+    "Microsoft.ManagedIdentity",
+    "Microsoft.Insights",
+    "Microsoft.OperationsManagement",
+    "Microsoft.SecurityInsights",
+    "Microsoft.Security",
+    "Microsoft.AlertsManagement",
+    "Microsoft.PolicyInsights",
+    "Microsoft.GuestConfiguration",
+  ]
+  alias           = "management"
+  subscription_id = var.subscription_ids["management"]
   features {
     resource_group {
       prevent_deletion_if_contains_resources = false
