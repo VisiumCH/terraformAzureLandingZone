@@ -90,7 +90,8 @@ jobs:
                     Microsoft.ManagedIdentity Microsoft.OperationsManagement \
                     Microsoft.SecurityInsights Microsoft.Security \
                     Microsoft.AlertsManagement Microsoft.PolicyInsights \
-                    Microsoft.GuestConfiguration Microsoft.Automation; do
+                    Microsoft.GuestConfiguration Microsoft.Automation \
+                    Microsoft.Network; do
             az provider register --namespace "$ns" \
               --subscription 8745729a-505a-4910-aaaf-d53b9cdc8883 --wait
           done
