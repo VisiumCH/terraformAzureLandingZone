@@ -92,7 +92,7 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
 
 1. **Networking — multi-region hub-and-spoke**
    (`connectivity_type = "hub_and_spoke_vnet"` in `management.tfvars`). **Minimal by
-   design — everything expensive is off**, so cost is ~€tens/mo (VNets + private DNS only).
+   design — everything expensive is off**, so cost is ~€tens/mo (two VNets only).
    Not yet applied: validate first via **Actions → Run workflow** (dispatch = plan only) on
    this branch, and confirm IP sign-off (below), then merge to apply.
    | Setting | Decision | Where |
@@ -101,11 +101,11 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
    | **Azure Firewall** | **OFF** (keep costs down — NSGs + private endpoints instead). No firewall ⇒ the hub is just a VNet + private DNS (minimal, cheap). | `primary/secondary_firewall_enabled = false` |
    | Region | ✅ **Confirmed (Pascal, Aug 2026):** primary **Switzerland North** (billing + existing resources + Swiss residency; LAW already here → no churn) + secondary **Sweden Central** (LLM/GPU + DR). | `starter_locations` (primary first) |
    | Bastion host | **OFF** | `primary/secondary_bastion_enabled = false` |
-   | Private DNS zones | **ON** | `primary/secondary_private_dns_zones_enabled = true` |
+   | Private DNS zones | **OFF** — no private endpoints in the new LZ yet; a workload gets its own zone when it creates one (or we add specific zones to the hub then). | `primary/secondary_private_dns_zones_enabled = false` |
    | Private DNS resolver | **OFF** (cost) | `primary/secondary_private_dns_resolver_enabled = false` |
    | Virtual network gateways | **OFF** | `..._gateway_express_route_enabled` / `..._vpn_enabled = false` |
    | DDoS protection plan | **OFF** | `ddos_protection_plan_enabled = false` |
-   | IP address ranges | **`172.16.0.0/16` (primary) + `172.17.0.0/16` (secondary)** — verified non-overlapping (all 7 existing VNets are `10.x`). Confirm no on-prem overlap at the **IP meeting: Tue Aug 11, 11:30–11:40 CEST**. | `custom_replacements.names` |
+   | IP address ranges | ✅ **Confirmed (IP meeting, Aug 2026):** use the accelerator's **documented multi-region defaults** — `172.16.0.0/16` (primary) + `172.17.0.0/16` (secondary). Verified non-overlapping (all existing VNets are `10.x`; 172.16/12 is a separate block). | `custom_replacements.names` |
    | Connectivity subscription | the **Management sub** for now (no dedicated connectivity sub yet) — hub + DNS land there | `subscription_ids.connectivity` |
    | Azure Monitor Agent (AMA) | **OFF** for now | `management_resource_settings` / policy |
    | Monitoring baseline alerts | **OFF** for now | management resources |

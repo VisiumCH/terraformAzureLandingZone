@@ -10,7 +10,7 @@ starter_locations = ["switzerlandnorth", "swedencentral"]
 root_parent_management_group_id = "b7418ead-a445-4708-a309-951ab14852eb"
 
 # `connectivity` points at the Management sub for now (no dedicated connectivity
-# sub yet) so the hub network + private DNS land there. `identity` is reserved.
+# sub yet) so the hub VNets land there. `identity` is reserved.
 subscription_ids = {
   management   = "8745729a-505a-4910-aaaf-d53b9cdc8883"
   connectivity = "8745729a-505a-4910-aaaf-d53b9cdc8883"
@@ -27,6 +27,7 @@ custom_replacements = {
     # Primary connectivity: NO firewall / bastion / gateways / private DNS zones / resolver.
     # Private DNS zones OFF: no private endpoints in the new LZ yet; a workload gets its
     # own zone when it creates one. Re-enable (or add specific zones) when that need is real.
+    
     primary_firewall_enabled                                             = false
     primary_firewall_sku_tier                                            = "Standard"
     primary_firewall_management_ip_enabled                               = false
@@ -105,7 +106,8 @@ custom_replacements = {
     primary_auto_registration_zone_name   = "$${starter_location_01}.azure.local"
     secondary_auto_registration_zone_name = "$${starter_location_02}.azure.local"
 
-    # --- IP ranges — 172.16/172.17 (verified: all existing VNets are 10.x, no overlap) ---
+    # --- IP ranges — 
+   
     # Primary regional address space: 172.16.0.0/16
     primary_hub_address_space                          = "172.16.0.0/16"
     primary_hub_virtual_network_address_space          = "172.16.0.0/22"
