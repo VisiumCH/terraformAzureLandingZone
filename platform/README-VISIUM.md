@@ -90,7 +90,7 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
 
 ## Next steps / what's missing
 
-1. **Networking — multi-region hub-and-spoke IMPLEMENTED on this branch**
+1. **Networking — multi-region hub-and-spoke**
    (`connectivity_type = "hub_and_spoke_vnet"` in `management.tfvars`). **Minimal by
    design — everything expensive is off**, so cost is ~€tens/mo (VNets + private DNS only).
    Not yet applied: validate first via **Actions → Run workflow** (dispatch = plan only) on
