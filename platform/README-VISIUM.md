@@ -93,8 +93,7 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
 1. **Networking — multi-region hub-and-spoke**
    (`connectivity_type = "hub_and_spoke_vnet"` in `management.tfvars`). **Minimal by
    design — everything expensive is off**, so cost is ~€tens/mo (two VNets only).
-   Not yet applied: validate first via **Actions → Run workflow** (dispatch = plan only) on
-   this branch, and confirm IP sign-off (below), then merge to apply.
+
    | Setting | Decision | Where |
    |---|---|---|
    | Scenario | Multi-region hub & spoke (primary + one DR region) | `connectivity_type = "hub_and_spoke_vnet"` |
@@ -119,17 +118,10 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
    *"Inherit a tag from the resource group"* (Modify, non-blocking) is assigned once per
    required tag (`project` / `cost-center` / `environment` / `owner`) at the `visium` root,
    each with a system-assigned identity + **Tag Contributor** role for remediation. Resources
-   inherit the tag from their RG — adds tags without blocking. Validate via dispatch-plan.
+   inherit the tag from their RG — adds tags without blocking.
 4. **Microsoft Sentinel data connectors** (Azure Activity / Entra ID / Defender).
    Terraform onboards Sentinel; connectors live in Pascal's Pulumi repo →
    **[VisiumCH/azure-infra — security-infra/security/sentinel.py](https://github.com/VisiumCH/azure-infra/blob/main/security-infra/security/sentinel.py)**.
    Decide ownership so Terraform and Pulumi don't both manage the workspace/Sentinel.
 5. **PIM / least privilege** — roll off standing admin; eligible JIT roles (Entra, not here).
 6. **Migrate the 14 existing subscriptions** from the old tree into `visium-*`, one at a time.
-
-
-## Before an apply
-- `ENABLE_APPLY=true` repo variable is set; apply runs on push to `main` and is gated by
-  the `production` environment approval.
-- Deploy SP `tf-alz-manager` needs its roles at the tenant root (management-group +
-  policy + role-assignment) — already granted.
