@@ -90,27 +90,36 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
 
 ## Next steps / what's missing
 
-1. **Networking — move to multi-region hub-and-spoke** (currently `connectivity_type = "none"`).
-   Agreed configuration for the next iteration:
+1. **Networking — multi-region hub-and-spoke IMPLEMENTED on this branch**
+   (`connectivity_type = "hub_and_spoke_vnet"` in `management.tfvars`). **Minimal by
+   design — everything expensive is off**, so cost is ~€tens/mo (VNets + private DNS only).
+   Not yet applied: validate first via **Actions → Run workflow** (dispatch = plan only) on
+   this branch, and confirm IP sign-off (below), then merge to apply.
    | Setting | Decision | Where |
    |---|---|---|
-   | Scenario | Multi-region hub & spoke (one primary + **one extra region** for DR) | accelerator scenario → `connectivity_type` + `starter_locations` |
-   | Region | Primary **Germany West Central** (cheaper/more services than Switzerland North — confirm with Pascal) | `starter_locations` |
-   | Bastion host | **OFF** | connectivity vars |
-   | Private DNS zones | **KEEP ON** | connectivity vars |
-   | Virtual network gateways | **OFF** | connectivity vars |
-   | DDoS protection plan | **OFF** | already `creation_enabled = false` |
-   | IP address ranges | **TBD** — company is small so not urgent, but **schedule a planning meeting** | connectivity vars |
+   | Scenario | Multi-region hub & spoke (primary + one DR region) | `connectivity_type = "hub_and_spoke_vnet"` |
+   | **Azure Firewall** | **OFF** (keep costs down — NSGs + private endpoints instead). No firewall ⇒ the hub is just a VNet + private DNS (minimal, cheap). | `primary/secondary_firewall_enabled = false` |
+   | Region | ✅ **Confirmed (Pascal, Aug 2026):** primary **Switzerland North** (billing + existing resources + Swiss residency; LAW already here → no churn) + secondary **Sweden Central** (LLM/GPU + DR). | `starter_locations` (primary first) |
+   | Bastion host | **OFF** | `primary/secondary_bastion_enabled = false` |
+   | Private DNS zones | **ON** | `primary/secondary_private_dns_zones_enabled = true` |
+   | Private DNS resolver | **OFF** (cost) | `primary/secondary_private_dns_resolver_enabled = false` |
+   | Virtual network gateways | **OFF** | `..._gateway_express_route_enabled` / `..._vpn_enabled = false` |
+   | DDoS protection plan | **OFF** | `ddos_protection_plan_enabled = false` |
+   | IP address ranges | **`172.16.0.0/16` (primary) + `172.17.0.0/16` (secondary)** — verified non-overlapping (all 7 existing VNets are `10.x`). Confirm no on-prem overlap at the **IP meeting: Tue Aug 11, 11:30–11:40 CEST**. | `custom_replacements.names` |
+   | Connectivity subscription | the **Management sub** for now (no dedicated connectivity sub yet) — hub + DNS land there | `subscription_ids.connectivity` |
    | Azure Monitor Agent (AMA) | **OFF** for now | `management_resource_settings` / policy |
    | Monitoring baseline alerts | **OFF** for now | management resources |
    | Defender for Cloud plans | **OFF** for now | `policy_assignments_to_modify` (Deploy-MDFC-Config) |
-2. **Move the two new subscriptions** into `visium-management` / `visium-online`
-   (`subscription_placement` is currently `{}`). Needs *unconstrained* role-assignment
-   rights on the subs — the deploy SP's roles are ABAC-conditioned, which fails the
-   sub-move check. Either a sub-owner/GA moves them in the portal, or re-grant the SP
-   unconditioned User Access Administrator / Owner and re-add `subscription_placement`.
-3. **Mandatory tagging policy** — activate (scaffold in `lib/archetype_definitions/root_custom…`).
-   Subscriptions carry text tags today, but the enforcing policy isn't assigned yet.
+2. **Subscription placement — DONE (manually).** `sub-visium-management` → `visium-management`
+   and `sub-visium-online` → `visium-online` were moved in the portal (Aug 2026). We keep
+   `subscription_placement = {}` in Terraform on purpose: the deploy SP's role assignments
+   are ABAC-conditioned and can't manage MG placement, so moves are done in the portal by a
+   privileged account (elevate access → grant self Management Group Contributor → move → revert).
+3. **Mandatory tagging policy — IMPLEMENTED** in `main.tagging.tf`: the built-in
+   *"Inherit a tag from the resource group"* (Modify, non-blocking) is assigned once per
+   required tag (`project` / `cost-center` / `environment` / `owner`) at the `visium` root,
+   each with a system-assigned identity + **Tag Contributor** role for remediation. Resources
+   inherit the tag from their RG — adds tags without blocking. Validate via dispatch-plan.
 4. **Microsoft Sentinel data connectors** (Azure Activity / Entra ID / Defender).
    Terraform onboards Sentinel; connectors live in Pascal's Pulumi repo →
    **[VisiumCH/azure-infra — security-infra/security/sentinel.py](https://github.com/VisiumCH/azure-infra/blob/main/security-infra/security/sentinel.py)**.
