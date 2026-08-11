@@ -24,15 +24,17 @@ custom_replacements = {
     # --- Connectivity feature toggles (keep costs down) ---
     ddos_protection_plan_enabled = false
 
-    # Primary connectivity: NO firewall / bastion / gateways; private DNS zones ON; resolver OFF
+    # Primary connectivity: NO firewall / bastion / gateways / private DNS zones / resolver.
+    # Private DNS zones OFF: no private endpoints in the new LZ yet; a workload gets its
+    # own zone when it creates one. Re-enable (or add specific zones) when that need is real.
     primary_firewall_enabled                                             = false
     primary_firewall_sku_tier                                            = "Standard"
     primary_firewall_management_ip_enabled                               = false
     primary_virtual_network_gateway_express_route_enabled                = false
     primary_virtual_network_gateway_express_route_hobo_public_ip_enabled = false
     primary_virtual_network_gateway_vpn_enabled                          = false
-    primary_private_dns_zones_enabled                                    = true
-    primary_private_dns_auto_registration_zone_enabled                   = true
+    primary_private_dns_zones_enabled                                    = false
+    primary_private_dns_auto_registration_zone_enabled                   = false
     primary_private_dns_resolver_enabled                                 = false
     primary_bastion_enabled                                              = false
 
@@ -43,8 +45,8 @@ custom_replacements = {
     secondary_virtual_network_gateway_express_route_enabled                = false
     secondary_virtual_network_gateway_express_route_hobo_public_ip_enabled = false
     secondary_virtual_network_gateway_vpn_enabled                          = false
-    secondary_private_dns_zones_enabled                                    = true
-    secondary_private_dns_auto_registration_zone_enabled                   = true
+    secondary_private_dns_zones_enabled                                    = false
+    secondary_private_dns_auto_registration_zone_enabled                   = false
     secondary_private_dns_resolver_enabled                                 = false
     secondary_bastion_enabled                                              = false
 
