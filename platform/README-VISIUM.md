@@ -10,7 +10,9 @@ organized way** — structure now so we don't create more work for ourselves lat
 Terraform owns the core (management groups, policy, logging); product workloads use
 their own IaC (Pulumi) inside their landing zones.
 
-**Status:** ✅ core **deployed** (Aug 7 2026) — `Apply complete! 0 changed, 0 destroyed`.
+**Status:** ✅ core **deployed** (Aug 7 2026) — governance + central logging.
+✅ networking + tagging **deployed** (Aug 11 2026) — `Apply complete! 36 added, 2 changed, 0 destroyed`:
+two-region hub (`vnet-hub-switzerlandnorth` 172.16.0.0/22 + `vnet-hub-swedencentral` 172.17.0.0/22, peered) and mandatory-tag inheritance. Platform Terraform is effectively complete; the rest is migrating subscriptions in and letting workloads (Pulumi) attach to the hub.
 
 ---
 
@@ -119,9 +121,9 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
    required tag (`project` / `cost-center` / `environment` / `owner`) at the `visium` root,
    each with a system-assigned identity + **Tag Contributor** role for remediation. Resources
    inherit the tag from their RG — adds tags without blocking.
-4. **Microsoft Sentinel data connectors** (Azure Activity / Entra ID / Defender).
-   Terraform onboards Sentinel; connectors live in Pascal's Pulumi repo →
+4. **Microsoft Sentinel — owned by Pulumi.** The single Sentinel is
+   Pascal's **`log-security-shared`** (`rg-security-shared-prod`, old "Management" sub
+   `fe2f1af2…`) — the established, operational one (connectors + SOC2/ISO history), managed in
    **[VisiumCH/azure-infra — security-infra/security/sentinel.py](https://github.com/VisiumCH/azure-infra/blob/main/security-infra/security/sentinel.py)**.
-   Decide ownership so Terraform and Pulumi don't both manage the workspace/Sentinel.
 5. **PIM / least privilege** — roll off standing admin; eligible JIT roles (Entra, not here).
-6. **Migrate the 14 existing subscriptions** from the old tree into `visium-*`, one at a time.
+6. **Migrate the 12 existing subscriptions** from the old tree into `visium-*`, one at a time

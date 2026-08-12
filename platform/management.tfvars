@@ -152,17 +152,16 @@ tags = {
   owner         = "cloud@visium.ch"
 }
 
-# Central Log Analytics workspace + Sentinel onboarding live in Terraform.
-# Sentinel data connectors are configured separately (module doesn't manage them).
+# Central Log Analytics workspace lives in Terraform (platform ops/diagnostics sink).
+# Sentinel is owned by Pascal's Pulumi stack on `log-security-shared` (rg-security-shared-prod,
+# "Management" sub) — the established, operational Sentinel. 
+# `sentinel_onboarding` is intentionally omitted so this workspace stays ops-only.
 management_resources_enabled = true
 
 management_resource_settings = {
   location                     = "$${starter_location_01}"
   log_analytics_workspace_name = "$${log_analytics_workspace_name}"
   resource_group_name          = "$${management_resource_group_name}"
-  sentinel_onboarding = {
-    name = "default" # Azure only accepts the onboarding state name "default"
-  }
   user_assigned_managed_identities = {
     ama = { name = "$${ama_user_assigned_managed_identity_name}" }
   }
