@@ -56,7 +56,6 @@ sit directly under the Tenant Root Group until moved.
 | Log Analytics workspace | 1 | **$** | `law-management-switzerlandnorth` (main cost driver) |
 | LA solutions | 2 | free* | ContainerInsights, VMInsights (*bill on ingested data) |
 | Data collection rules | 3 | free* | change-tracking / vm-insights / defender-sql (*bill when VMs send data) |
-| Microsoft Sentinel onboarding | 1 | **$** | onboarded onto the workspace (state name `default`) |
 | Resource group + AMA identity | 2 | free | in `sub-visium-management` |
 | **Subscription placements** | **0** | — | **deferred** (see next steps) |
 
@@ -125,5 +124,4 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
    Pascal's **`log-security-shared`** (`rg-security-shared-prod`, old "Management" sub
    `fe2f1af2…`) — the established, operational one (connectors + SOC2/ISO history), managed in
    **[VisiumCH/azure-infra — security-infra/security/sentinel.py](https://github.com/VisiumCH/azure-infra/blob/main/security-infra/security/sentinel.py)**.
-5. **PIM / least privilege** — roll off standing admin; eligible JIT roles (Entra, not here).
-6. **Migrate the 12 existing subscriptions** from the old tree into `visium-*`, one at a time
+5. **Migrate the 12 existing subscriptions** from the old tree into `visium-*`, one at a time (Visium Labs Demo, Visium Labs Staging, Marion Claudet and MCPP are done)
