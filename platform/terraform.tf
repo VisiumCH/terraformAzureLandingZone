@@ -59,6 +59,7 @@ provider "azurerm" {
     "Microsoft.AlertsManagement",
     "Microsoft.PolicyInsights",
     "Microsoft.GuestConfiguration",
+    "Microsoft.Logic",
   ]
   alias           = "management"
   subscription_id = var.subscription_ids["management"]

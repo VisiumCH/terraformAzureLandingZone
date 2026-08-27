@@ -87,6 +87,15 @@ variable "tags" {
   description = "(Optional) Tags of the resource."
 }
 
+variable "slack_webhook_url" {
+  type        = string
+  sensitive   = true
+  description = <<DESCRIPTION
+Slack incoming webhook URL for the #visium-infra-alerts channel, used by the
+infra-alerts Logic App to post alert notifications.
+DESCRIPTION
+}
+
 variable "telemetry_additional_content" {
   type        = map(string)
   default     = null

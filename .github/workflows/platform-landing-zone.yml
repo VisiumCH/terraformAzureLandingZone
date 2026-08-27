@@ -55,6 +55,8 @@ jobs:
             -backend-config="use_oidc=true"
 
       - name: Terraform Plan
+        env:
+          TF_VAR_slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: terraform plan -input=false -var-file="management.tfvars" -out=tfplan
 
       - name: Upload Plan Artifact
