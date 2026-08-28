@@ -27,7 +27,7 @@ custom_replacements = {
     # Primary connectivity: NO firewall / bastion / gateways / private DNS zones / resolver.
     # Private DNS zones OFF: no private endpoints in the new LZ yet; a workload gets its
     # own zone when it creates one. Re-enable (or add specific zones) when that need is real.
-    
+
     primary_firewall_enabled                                             = false
     primary_firewall_sku_tier                                            = "Standard"
     primary_firewall_management_ip_enabled                               = false
@@ -107,7 +107,7 @@ custom_replacements = {
     secondary_auto_registration_zone_name = "$${starter_location_02}.azure.local"
 
     # --- IP ranges — 
-   
+
     # Primary regional address space: 172.16.0.0/16
     primary_hub_address_space                          = "172.16.0.0/16"
     primary_hub_virtual_network_address_space          = "172.16.0.0/22"
@@ -200,21 +200,33 @@ management_group_settings = {
     visium = {
       policy_assignments = {
         Deploy-MDFC-Config-H224 = {
+          # Defender for Cloud plans OFF
           parameters = {
-            enableAscForServers                         = "DeployIfNotExists"
-            enableAscForServersVulnerabilityAssessments = "DeployIfNotExists"
-            enableAscForSql                             = "DeployIfNotExists"
-            enableAscForAppServices                     = "DeployIfNotExists"
-            enableAscForStorage                         = "DeployIfNotExists"
-            enableAscForContainers                      = "DeployIfNotExists"
-            enableAscForKeyVault                        = "DeployIfNotExists"
-            enableAscForSqlOnVm                         = "DeployIfNotExists"
-            enableAscForArm                             = "DeployIfNotExists"
-            enableAscForOssDb                           = "DeployIfNotExists"
-            enableAscForCosmosDbs                       = "DeployIfNotExists"
-            enableAscForCspm                            = "DeployIfNotExists"
+            enableAscForServers                         = "Disabled"
+            enableAscForServersVulnerabilityAssessments = "Disabled"
+            enableAscForSql                             = "Disabled"
+            enableAscForAppServices                     = "Disabled"
+            enableAscForStorage                         = "Disabled"
+            enableAscForContainers                      = "Disabled"
+            enableAscForKeyVault                        = "Disabled"
+            enableAscForSqlOnVm                         = "Disabled"
+            enableAscForArm                             = "Disabled"
+            enableAscForOssDb                           = "Disabled"
+            enableAscForCosmosDbs                       = "Disabled"
+            enableAscForCspm                            = "Disabled"
           }
         }
+        Deploy-MDEndpointsAMA = { creation_enabled = false }
+        Deploy-ASC-Monitoring = { creation_enabled = false }
+      }
+    }
+    "visium-platform" = {
+      policy_assignments = {
+        Deploy-VM-Monitoring     = { creation_enabled = false }
+        Deploy-VMSS-Monitoring   = { creation_enabled = false }
+        Deploy-vmHybr-Monitoring = { creation_enabled = false }
+        Deploy-MDFC-DefSQL-AMA   = { creation_enabled = false }
+        DenyAction-DeleteUAMIAMA = { creation_enabled = false }
       }
     }
     "visium-connectivity" = {
