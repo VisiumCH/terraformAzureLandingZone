@@ -139,7 +139,7 @@ locals {
              who = tostring(properties.changeAttributes.changedBy),
              whoType = tostring(properties.changeAttributes.changedByType),
              client = tostring(properties.changeAttributes.clientType)
-    | where ts > ago(18m) and ct == 'Create'
+    | where ts > ago(15m) and ct == 'Create'
     | project rid, ts, who, whoType, client
     | join kind=inner (
         resources
