@@ -108,21 +108,26 @@ output "infra_alerts_action_group_id" {
 
 # ---------------------------------------------------------------------------
 #
-# A timer-driven Logic App queries Azure Resource Graph every 15 min for
-# resources that were created and are actually risky. It deliberately ignores the
-# intentional/expected public surface (gateway/LB/NAT public IPs, and the
-# ubiquitous storage "public network access") so Slack only pings on the
-# surprising cases:
-#   * a public IP attached directly to a VM NIC  (someone exposed a VM), and
-#   * a storage account with anonymous blob (public) access enabled.
+# A timer-driven Logic App queries Azure Resource Graph every 15 min for public
+# resources that were just created 
+# It flags:
+#   * any public IP address,
+#   * a storage account with anonymous blob (public) access, and
+#   * any other resource created with publicNetworkAccess = Enabled (SQL, Cosmos,
+#     Key Vault, ACR, Data Factory, Cognitive Services, ...).
 #
-# Resource Graph is used (not the Activity Log) because both signals are resource
+# To avoid alarm fatigue it suppresses auto-managed resource
+# groups (Databricks / AKS / Container Apps managed infra), which churn public
+# endpoints by design. Storage is matched on anonymous-blob only — NOT the
+# ubiquitous "public network access" default — which would fire on every account.
+#
+# Resource Graph is used (not the Activity Log) because these are resource
 # PROPERTIES the Activity Log can't see, and its change feed carries who
 # (changedBy), when, and how (clientType, e.g. "Azure Portal"). The Logic App
 # posts a Block Kit message straight to Slack (the reusable ag-infra-alerts group
 # above stays the target for metric/log alerts).
 #
-# To broaden coverage later, add cases to the `reason` expression in the query.
+# Tune coverage via the `reason` case expression; tune noise via the RG filter.
 # ---------------------------------------------------------------------------
 
 locals {
@@ -135,20 +140,22 @@ locals {
              whoType = tostring(properties.changeAttributes.changedByType),
              client = tostring(properties.changeAttributes.clientType)
     | where ts > ago(18m) and ct == 'Create'
-    | where rid has 'publicipaddresses' or rid has 'storageaccounts'
     | project rid, ts, who, whoType, client
     | join kind=inner (
         resources
         | extend rid = tolower(id)
         | project rid, name, type, resourceGroup, subscriptionId,
-                  ipcfg = tostring(properties.ipConfiguration.id),
-                  blob = tostring(properties.allowBlobPublicAccess)
+                  blob = tostring(properties.allowBlobPublicAccess),
+                  pna = tostring(properties.publicNetworkAccess)
       ) on rid
     | extend reason = case(
-        type =~ 'microsoft.network/publicipaddresses' and ipcfg has 'networkInterfaces', 'Public IP attached directly to a VM NIC',
-        type =~ 'microsoft.storage/storageaccounts' and blob == 'true', 'Storage account with anonymous blob (public) access enabled',
+        type =~ 'microsoft.network/publicipaddresses', 'Public IP address created',
+        type =~ 'microsoft.storage/storageaccounts' and blob == 'true', 'Storage account with anonymous blob (public) access',
+        type !~ 'microsoft.storage/storageaccounts' and type !~ 'microsoft.network/publicipaddresses' and pna =~ 'Enabled', strcat('Public network access enabled on ', type),
         '')
     | where reason != ''
+    // Suppress auto-managed resource groups (Databricks / AKS / Container Apps managed infra) — they churn public IPs/endpoints by design, not a human exposing anything.
+    | where resourceGroup !startswith 'mc_' and resourceGroup !startswith 'me_' and resourceGroup !has 'databricks' and resourceGroup !has 'managed'
     | extend whenUtc = format_datetime(ts, 'yyyy-MM-dd HH:mm')
     | project name, type, resourceGroup, subscriptionId, reason, whenUtc, who, whoType, client
   KQL
