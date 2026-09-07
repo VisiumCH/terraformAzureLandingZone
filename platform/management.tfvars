@@ -478,3 +478,26 @@ telemetry_additional_content = {
   deployed_by    = "alz-terraform-accelerator"
   correlation_id = "00000000-0000-0000-0000-000000000000"
 }
+
+# --- AZU-7 : per-subscription monthly budgets -> Slack (via ag-infra-alerts) ---
+# Amounts in the billing currency, sized from Aug-2026 actual spend (~x1.3, rounded).
+# Spenders carry an explicit `amount`; near-idle subs inherit the 50 floor (a tripwire
+# that catches unexpected spend). Revisit as real spend grows.
+default_monthly_budget_amount = 50
+
+subscription_budgets = {
+  management        = { subscription_id = "8745729a-505a-4910-aaaf-d53b9cdc8883" }                # Aug ~0
+  online            = { subscription_id = "fc00db1c-50de-4379-8670-376f62c6b514" }                # Aug ~0
+  dataplatform-demo = { subscription_id = "8bec8b7e-e044-49e5-93c2-a1f2292290ff", amount = 450 }  # Aug ~310
+  consulting        = { subscription_id = "f12e214d-46c6-49bf-a083-f89cf9c3179d", amount = 900 }  # Aug ~677
+  labs              = { subscription_id = "8aee18d5-5638-4540-98e9-f01ffc697054", amount = 1450 } # Aug ~1102
+  labs-demo         = { subscription_id = "58f6837f-7c34-42f4-924b-5bad6bc499f3" }                # Aug ~0
+  labs-staging      = { subscription_id = "4886dea2-bb7f-410c-8208-31efbcf12c18" }                # Aug ~0
+  marion            = { subscription_id = "d5ac30d2-e592-4204-81d7-8000fdddd8ff" }                # Aug ~0
+  mcpp              = { subscription_id = "aae538db-f566-4616-86a2-3b29cd19c6b2" }                # Aug ~0
+  centris-dev       = { subscription_id = "37e9c5c5-4c45-4bf2-816c-548f8a79d21c", amount = 150 }  # Aug ~84
+  cust-dp-dev       = { subscription_id = "f27dd8a4-d7f7-40c5-bbab-0d0afe04f65e" }                # Aug ~0
+  cust-ai-dev       = { subscription_id = "604e9f63-a8d8-490f-986c-3b40c6a2dd96" }                # Aug n/a (throttled) — assumed idle
+  cust-ai-qual      = { subscription_id = "49bb9fcd-c060-4e38-ad18-aa8dbee8672b" }                # Aug ~0
+  cust-hub          = { subscription_id = "c8502c9e-73cb-45cc-a0e9-bd9811f78b6c" }                # Aug ~0
+}
