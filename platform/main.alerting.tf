@@ -151,7 +151,7 @@ locals {
     | extend reason = case(
         type =~ 'microsoft.network/publicipaddresses', 'Public IP address created',
         type =~ 'microsoft.storage/storageaccounts' and blob == 'true', 'Storage account with anonymous blob (public) access',
-        type !~ 'microsoft.storage/storageaccounts' and type !~ 'microsoft.network/publicipaddresses' and pna =~ 'Enabled', strcat('Public network access enabled on ', type),
+        type in~ ('microsoft.sql/servers', 'microsoft.documentdb/databaseaccounts', 'microsoft.keyvault/vaults', 'microsoft.containerregistry/registries', 'microsoft.datafactory/factories', 'microsoft.cognitiveservices/accounts', 'microsoft.synapse/workspaces', 'microsoft.dbforpostgresql/flexibleservers', 'microsoft.dbformysql/flexibleservers', 'microsoft.cache/redis', 'microsoft.eventhub/namespaces', 'microsoft.servicebus/namespaces', 'microsoft.web/sites', 'microsoft.search/searchservices', 'microsoft.app/managedenvironments', 'microsoft.appconfiguration/configurationstores', 'microsoft.signalrservice/signalr', 'microsoft.machinelearningservices/workspaces') and pna =~ 'Enabled', strcat('Public network access enabled on ', type),
         '')
     | where reason != ''
     // Suppress auto-managed resource groups (Databricks / AKS / Container Apps managed infra) — they churn public IPs/endpoints by design, not a human exposing anything.
