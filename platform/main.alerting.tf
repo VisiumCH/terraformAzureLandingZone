@@ -111,7 +111,10 @@ output "infra_alerts_action_group_id" {
 # A timer-driven Logic App queries Azure Resource Graph every 15 min for public
 # resources that were just created 
 # It flags:
-#   * any public IP address,
+#   * a public IP fronting inbound traffic — attached to a VM NIC, a load
+#     balancer, or an application gateway (NAT gateways are outbound-only, and
+#     firewall / bastion / VPN-ER gateway IPs are managed hub infra, so those are
+#     NOT flagged; an unattached/orphan IP is also not flagged — see caveat),
 #   * a storage account with anonymous blob (public) access, and
 #   * any other resource created with publicNetworkAccess = Enabled (SQL, Cosmos,
 #     Key Vault, ACR, Data Factory, Cognitive Services, ...).
@@ -146,10 +149,11 @@ locals {
         | extend rid = tolower(id)
         | project rid, name, type, resourceGroup, subscriptionId,
                   blob = tostring(properties.allowBlobPublicAccess),
-                  pna = tostring(properties.publicNetworkAccess)
+                  pna = tostring(properties.publicNetworkAccess),
+                  ipcfg = tostring(properties.ipConfiguration.id)
       ) on rid
     | extend reason = case(
-        type =~ 'microsoft.network/publicipaddresses', 'Public IP address created',
+        type =~ 'microsoft.network/publicipaddresses' and (ipcfg has 'networkInterfaces' or ipcfg has 'loadBalancers' or ipcfg has 'applicationGateways'), 'Public IP fronting inbound traffic (VM / load balancer / app gateway)',
         type =~ 'microsoft.storage/storageaccounts' and blob == 'true', 'Storage account with anonymous blob (public) access',
         type in~ ('microsoft.sql/servers', 'microsoft.documentdb/databaseaccounts', 'microsoft.keyvault/vaults', 'microsoft.containerregistry/registries', 'microsoft.datafactory/factories', 'microsoft.cognitiveservices/accounts', 'microsoft.synapse/workspaces', 'microsoft.dbforpostgresql/flexibleservers', 'microsoft.dbformysql/flexibleservers', 'microsoft.cache/redis', 'microsoft.eventhub/namespaces', 'microsoft.servicebus/namespaces', 'microsoft.web/sites', 'microsoft.search/searchservices', 'microsoft.app/managedenvironments', 'microsoft.appconfiguration/configurationstores', 'microsoft.signalrservice/signalr', 'microsoft.machinelearningservices/workspaces') and pna =~ 'Enabled', strcat('Public network access enabled on ', type),
         '')
