@@ -10,6 +10,9 @@ organized way** — structure now so we don't create more work for ourselves lat
 Terraform owns the core (management groups, policy, logging); product workloads use
 their own IaC (Pulumi) inside their landing zones.
 
+**Onboarding a new project?** See [ONBOARDING.md](ONBOARDING.md) — which path (Visium
+Consulting / corp / online), how to request a landing zone, and what it comes with.
+
 **Status:** ✅ core **deployed** (Aug 7 2026) — governance + central logging.
 ✅ networking + tagging **deployed** (Aug 11 2026) — `Apply complete! 36 added, 2 changed, 0 destroyed`:
 two-region hub (`vnet-hub-switzerlandnorth` 172.16.0.0/22 + `vnet-hub-swedencentral` 172.17.0.0/22, peered) and mandatory-tag inheritance. Platform Terraform is effectively complete; the rest is migrating subscriptions in and letting workloads (Pulumi) attach to the hub.
@@ -20,26 +23,17 @@ two-region hub (`vnet-hub-switzerlandnorth` 172.16.0.0/22 + `vnet-hub-swedencent
 
 ```
 Tenant Root
-└── visium
-    ├── visium-platform ── visium-management (LAW + Sentinel) / visium-connectivity / visium-identity
-    ├── visium-landing-zones ── visium-corp / visium-online
-    ├── visium-sandbox
-    └── visium-decommissioned
+├── visium
+│   ├── visium-platform ── visium-management (LAW + Sentinel) / visium-connectivity / visium-identity
+│   ├── visium-landing-zones ── visium-corp / visium-online
+│   ├── visium-sandbox   (most migrated workloads; `customer-demo` temp sub-MG)
+│   └── visium-decommissioned   (old Management sub `fe2f1af2`, retiring)
+└── mg-02 ── landing-zones ── Lonza Devin Pilot   (excluded, do-not-touch — retained)
 ```
 
 IDs are prefixed **`visium-`** (display names stay clean) because management-group IDs
 are **tenant-global** and the pre-existing structure already used `platform` /
-`landing-zones` / `sandbox`. All groups are created new; **no subscriptions moved yet.**
-
-## Structure before the change (pre-existing, untouched)
-
-Under the Tenant Root Group there were already ~16 management groups from earlier ad-hoc
-work — including `mg-02`, `platform`, `landing-zones`, `sandbox`, and `Data Platform`,
-plus the 14 existing subscriptions. **None of these were modified.** They are migrated
-into the new `visium` tree later, one at a time, and the old groups retired into
-`visium-decommissioned` (plan §5). The two new subscriptions (`sub-visium-management`
-`8745729a…`, `sub-visium-online` `fc00db1c…`) were created for this build and currently
-sit directly under the Tenant Root Group until moved.
+`landing-zones` / `sandbox`. 
 
 ---
 
@@ -89,6 +83,77 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
 
 ---
 
+## Networking
+
+Multi-region **hub & spoke** (`connectivity_type = "hub_and_spoke_vnet"`, AVM
+`avm-ptn-alz-connectivity-hub-and-spoke-vnet`), deployed **minimal** to keep costs
+down. Detailed toggles live in `management.tfvars` (see the table in *Next steps* §1).
+
+### How it's done now (deployed)
+
+Both hub VNets currently land in the **management subscription**
+(`sub-visium-management`) — `subscription_ids.connectivity` points at it, so there is
+**no dedicated connectivity sub yet**.
+
+| Region | Hub VNet | VNet space | Regional space |
+|---|---|---|---|
+| Primary — **Switzerland North** | `vnet-hub-switzerlandnorth` | `172.16.0.0/22` | `172.16.0.0/16` |
+| Secondary — **Sweden Central** | `vnet-hub-swedencentral` | `172.17.0.0/22` | `172.17.0.0/16` |
+
+**OFF everywhere** (names reserved, not deployed): Azure Firewall + policy, Bastion,
+VPN gateway, ExpressRoute gateway, DDoS plan, Private DNS zones, Private DNS resolver.
+Hub subnets are empty. **No spokes peered yet** — migrated workloads sit in
+`visium-sandbox`, where `SandboxDenyVnetPeering` **denies peering** (VNets are
+deliberately isolated). The `customer-demo` temp MG has a scoped waiver so its spokes
+can peer to a demo hub.
+
+### Target (AZU-14)
+
+- **Dedicated connectivity subscription** — split hubs out of the management sub into `visium-connectivity`.
+- **France Central hub** (per Daniel) — additional region + VNet; needs **Azure Firewall + Private DNS**.
+- **Turn on hub services** as need arises: Azure Firewall (+ policy), Bastion, **VPN / ExpressRoute gateway** for hybrid/on-prem, **Private DNS zones + resolver** for Private Link, DDoS plan when justified.
+- **Spoke peering** for corp/online landing zones → hub. **Sandbox stays isolated** (no peering, by policy); read-only outside sandbox.
+- **Hub-to-hub peering** CH North ⇄ Sweden Central ⇄ France Central for DR / cross-region routing.
+- **Tailscale** as the interim/overlay VPN + one consolidated VPN-logging solution (AZU-8).
+
+---
+
+## Sandbox policy reference — what actually blocks a deployment
+
+Complete set effective on **any `visium-sandbox` subscription** — the sandbox guardrail
+(`Enforce-ALZ-Sandbox`) plus everything inherited from the `visium` root. **20 rules
+total, but only 4 block anything.**
+
+**🔴 DENY — block deployment (the only ones you can hit)**
+
+| Policy | What it blocks |
+|---|---|
+| `SandboxDenyVnetPeering` | Any VNet peering (sandbox-specific) |
+| `SandboxNotAllowed` | Gateways / hybrid networking — VPN, ExpressRoute, vWAN, virtual network gateways (9 types) |
+| `Deny-Classic-Resources` | Classic (ASM-era) resources |
+| `Deny-UnmanagedDisk` | VMs / scale sets without managed disks |
+
+Only these four can fail a deploy. The first two (sandbox-specific) are pre-waived for
+the `customer-demo` subs via scoped policy exemptions (category `Waiver`). Public
+endpoints + IP-forwarding **are allowed** in sandbox.
+
+**🟡 AUDIT — flag only, never block:** `Audit-TrustedLaunch`, `Audit-UnusedResources`,
+`Audit-ResourceRGLocation`, `Audit-ZoneResiliency`, `Enforce-ACSB`.
+
+**🟢 DEPLOY-IF-NOT-EXISTS — auto-deploy governance, don't block:**
+`Deploy-SvcHealth-BuiltIn`, `Deploy-Diag-LogsCat`, `Deploy-AzActivity-Log`,
+`Deploy-MDFC-Config-H224`, `Deploy-MDEndpoints`, `Deploy-MDFC-SqlAtp`,
+`Deploy-MDFC-OssDb`. These create the "+3 governance resources" per sub and re-point
+diagnostics — additive.
+
+**🔵 MODIFY — add tags, don't block:** `inherit-tag-project` / `-costcenter` /
+`-environment` / `-owner` (inherit the 4 required tags from the RG/sub onto resources).
+
+> ⚠️ `Merge` overwrites an existing tag value, and Azure tag keys are **case-insensitive**
+> (`Owner` vs `owner` collide). On richly-tagged subs, fill only missing keys.
+
+---
+
 ## Next steps / what's missing
 
 1. **Networking — multi-region hub-and-spoke**
@@ -110,18 +175,3 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
    | Azure Monitor Agent (AMA) | **OFF** for now | `management_resource_settings` / policy |
    | Monitoring baseline alerts | **OFF** for now | management resources |
    | Defender for Cloud plans | **OFF** for now | `policy_assignments_to_modify` (Deploy-MDFC-Config) |
-2. **Subscription placement — DONE (manually).** `sub-visium-management` → `visium-management`
-   and `sub-visium-online` → `visium-online` were moved in the portal (Aug 2026). We keep
-   `subscription_placement = {}` in Terraform on purpose: the deploy SP's role assignments
-   are ABAC-conditioned and can't manage MG placement, so moves are done in the portal by a
-   privileged account (elevate access → grant self Management Group Contributor → move → revert).
-3. **Mandatory tagging policy — IMPLEMENTED** in `main.tagging.tf`: the built-in
-   *"Inherit a tag from the resource group"* (Modify, non-blocking) is assigned once per
-   required tag (`project` / `cost-center` / `environment` / `owner`) at the `visium` root,
-   each with a system-assigned identity + **Tag Contributor** role for remediation. Resources
-   inherit the tag from their RG — adds tags without blocking.
-4. **Microsoft Sentinel — owned by Pulumi.** The single Sentinel is
-   Pascal's **`log-security-shared`** (`rg-security-shared-prod`, old "Management" sub
-   `fe2f1af2…`) — the established, operational one (connectors + SOC2/ISO history), managed in
-   **[VisiumCH/azure-infra — security-infra/security/sentinel.py](https://github.com/VisiumCH/azure-infra/blob/main/security-infra/security/sentinel.py)**.
-5. **Migrate the 12 existing subscriptions** from the old tree into `visium-*`, one at a time (Visium Labs Demo, Visium Labs Staging, Marion Claudet and MCPP are done)
