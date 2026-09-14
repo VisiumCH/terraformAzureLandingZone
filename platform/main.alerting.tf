@@ -1,5 +1,5 @@
 # Infra push-notification alerting path 
-# Azure Monitor Action Group -> Logic App -> Slack (#visium-infra-alerts).
+# Azure Monitor Action Group -> Logic App -> Slack (#feed-infra-alerts).
 # An Action Group webhook receiver cannot post to Slack directly (it emits the
 # Azure alert schema; a Slack incoming webhook only renders {"text": ...}), so a
 # Logic App transforms the alert into a Slack message. The Action Group here is
@@ -160,8 +160,15 @@ locals {
     | where reason != ''
     // Suppress auto-managed resource groups (Databricks / AKS / Container Apps managed infra) — they churn public IPs/endpoints by design, not a human exposing anything.
     | where resourceGroup !startswith 'mc_' and resourceGroup !startswith 'me_' and resourceGroup !has 'databricks' and resourceGroup !has 'managed'
+    // Translate the subscription GUID to its human-readable display name (falls back to the GUID).
+    | join kind=leftouter (
+        resourcecontainers
+        | where type == 'microsoft.resources/subscriptions'
+        | project subscriptionId, subName = name
+      ) on subscriptionId
+    | extend subscription = coalesce(subName, subscriptionId)
     | extend whenUtc = format_datetime(ts, 'yyyy-MM-dd HH:mm')
-    | project name, type, resourceGroup, subscriptionId, reason, whenUtc, who, whoType, client
+    | project name, type, resourceGroup, subscription, subscriptionId, reason, whenUtc, who, whoType, client
   KQL
 }
 
@@ -243,7 +250,7 @@ resource "azapi_resource" "public_resource_watch" {
                           { type = "mrkdwn", text = "*:file_folder: Resource group*\n@{items('For_each_finding')?['resourceGroup']}" },
                           { type = "mrkdwn", text = "*:bust_in_silhouette: Who*\n@{items('For_each_finding')?['who']} (@{items('For_each_finding')?['whoType']})" },
                           { type = "mrkdwn", text = "*:clock3: When (UTC)*\n@{items('For_each_finding')?['whenUtc']}" },
-                          { type = "mrkdwn", text = "*:key: Subscription*\n@{items('For_each_finding')?['subscriptionId']}" },
+                          { type = "mrkdwn", text = "*:key: Subscription*\n@{items('For_each_finding')?['subscription']}" },
                           { type = "mrkdwn", text = "*:computer: Via*\n@{items('For_each_finding')?['client']}" },
                         ]
                       },

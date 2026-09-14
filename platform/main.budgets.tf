@@ -3,7 +3,7 @@
 # Each subscription in the visium tree gets a monthly consumption budget. At
 # 50 / 80 / 100% of actual spend, plus 100% of forecast (early warning), it
 # notifies the reusable ag-infra-alerts Action Group, which the Logic App shim
-# posts to #visium-infra-alerts. Budget notifications reach the Action Group in
+# posts to #feed-infra-alerts. Budget notifications reach the Action Group in
 # the common alert schema (use_common_alert_schema = true on the receiver), so
 # no Logic App change is needed.
 #

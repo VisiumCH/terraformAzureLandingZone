@@ -28,7 +28,7 @@ visium
 
 * **Sandbox / Visium Consulting** — quick tests and throwaway work. Manual portal creation
   is allowed, but creating a **public** resource fires a Slack alert in
-  `#visium-infra-alerts`. Nothing here is production.
+  `#feed-infra-alerts`. Nothing here is production.
 * **Corp / Online** — real projects. **The portal is read-only; all changes go through IaC**
   (Terraform or Pulumi via GitHub Actions). Deny policies are enforced.
 
@@ -77,7 +77,7 @@ Then:
   [AZU-11](https://linear.app/visium/issue/AZU-11/33-define-ownership-per-workload-category)).
 * **A monthly budget + cost alerts** (`platform/main.budgets.tf`) — default **500/month**,
   overridable per subscription. Notifies at **50 / 80 / 100 %** of actual spend, plus
-  **100 % of forecast** as an early warning, into `#visium-infra-alerts` via the shared
+  **100 % of forecast** as an early warning, into `#feed-infra-alerts` via the shared
   action group. A budget **caps nothing** — it makes spend visible.
 * **Policy baseline** from the parent management group:
   * *Corp / Online:* deny policies **enforced** (no public endpoints unless justified, NSGs

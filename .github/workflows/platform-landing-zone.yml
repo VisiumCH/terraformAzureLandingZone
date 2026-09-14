@@ -57,13 +57,23 @@ jobs:
       - name: Terraform Plan
         env:
           TF_VAR_slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: terraform plan -input=false -var-file="management.tfvars" -out=tfplan
+        run: |
+          set -o pipefail
+          # The ALZ module refreshes ~600 resources on every plan, and those
+          # "Refreshing state..." lines are two thirds of the log. Keep the full
+          # output in plan-full.log (uploaded with the plan) and print only the
+          # part a human reads.
+          terraform plan -input=false -var-file="management.tfvars" -out=tfplan 2>&1 \
+            | tee plan-full.log \
+            | sed -E '/: (Refreshing state\.\.\.|Reading\.\.\.|Read complete after )/d'
 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
         with:
           name: alz-tfplan
-          path: platform/tfplan
+          path: |
+            platform/tfplan
+            platform/plan-full.log
           retention-days: 1
 
   apply:
