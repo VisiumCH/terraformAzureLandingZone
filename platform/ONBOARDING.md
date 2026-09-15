@@ -3,15 +3,10 @@
 How a new project, test setup, or client engagement gets an Azure home in the `visium`
 landing zone.
 
-The rule is **one landing zone (subscription) per real project, with a named owner and a
+The rule is **one landing zone (subscription or RG) per real project, with a named owner and a
 budget** — so we always know who owns what, who to call when something breaks, and where
 the money goes. Anything smaller than a real project (a test, a POC, a spike) does **not**
 get its own subscription: it goes into the shared **Visium Consulting** subscription.
-
-> **Why this exists.** Historically a few subscriptions (Visium Consulting, Visium Labs)
-> each held many unrelated projects. Nobody could say who owned a given resource or
-> whether it was safe to delete, and cost drifted unnoticed. Every new project now starts
-> as an owned, tagged, budgeted landing zone.
 
 ---
 
@@ -45,16 +40,18 @@ its own subscription.** If in doubt, start in Visium Consulting and graduate it 
 
 ## 3. How to request
 
-Post in the **`#it-support`** Slack channel. A request needs:
+If you definitely need a new Azure subscription then post in the **`#it-support`** Slack channel. A request needs:
 
-| Field | Notes |
-|---|---|
+A request needs:
+
+| **Field** | **Notes** |
+| --- | --- |
 | Project name + one-line description | What it is, and for whom |
+| Workload | `production-internal` or `production-external`  |
 | **Owner** | A named person, not a team |
-| Path | Consulting RG / corp sub / online sub (see §2) |
 | Expected monthly budget + cost-center | Drives the budget + chargeback tags |
-| Region(s) | Default **Switzerland North**; **Sweden Central** for GPU/LLM or DR |
-| Private connectivity needed? | Hub attach / access via **Tailscale** |
+| Region(s) | Default **Switzerland North**; **Sweden Central** for GPU/LLM |
+| Private connectivity needed? | Hub attach / access via **Tailscale** |
 | Expected lifetime | Throwaway, project-length, or permanent |
 
 Then:
@@ -90,3 +87,14 @@ Then:
 * **Private-by-default networking** — access via **Tailscale**; no public exposure without
   a documented reason. Two-region hub: `vnet-hub-switzerlandnorth` (172.16.0.0/22) and
   `vnet-hub-swedencentral` (172.17.0.0/22).
+
+## 5. Offboarding
+
+**The owner named on the request owns the cleanup.** A landing zone is not finished when the project stops being interesting; it is finished when its resources are gone.
+
+### **What to do**
+
+| You are closing down… | Do this |
+| --- | --- |
+| A **resource group** in Visium Consulting | Delete the resource group — that removes everything inside it. If it was deployed with IaC, run `terraform destroy` / `pulumi destroy` first so state and reality stay in sync. |
+| A **whole subscription** (corp / online) | Post in **`#it-support`**. The platform team tears down the workload, removes the budget and role assignments, and moves the subscription to the **`visium-decommissioned`** management group before cancellation. Do not cancel it yourself - it is on the shared billing profile. |
