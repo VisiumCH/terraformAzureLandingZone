@@ -3,10 +3,14 @@ name: 'Platform Landing Zone'
 on:
   push:
     branches: [ "main" ]
-    paths: [ "platform/**" ]
+    paths:
+      - "platform/**"
+      - "!platform/**.md"
   pull_request:
     branches: [ "main" ]
-    paths: [ "platform/**" ]
+    paths:
+      - "platform/**"
+      - "!platform/**.md"
   workflow_dispatch:
 
 

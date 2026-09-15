@@ -190,7 +190,7 @@ resource "azapi_resource" "public_resource_watch" {
         "$schema"      = "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#"
         contentVersion = "1.0.0.0"
         parameters = {
-          slackWebhookUrl = { type = "securestring" }
+          slackWebhookUrl = { type = "SecureString" }
         }
         triggers = {
           Every_15_min = {
