@@ -15,7 +15,7 @@ per-service guardrail initiatives, plus `Enforce-Subnet-Private` and
 |---|---|---|---|---|
 | `customer-demo-networking` | MG `customer-demo` | `Enforce-ALZ-Sandbox` | `SandboxDenyVnetPeering`, `SandboxNotAllowed` | none — temp MG |
 | `consulting-sandbox-peering` | sub `f12e214d` | `Enforce-ALZ-Sandbox` | `SandboxDenyVnetPeering` | none |
-| `dp-sandbox-networking` | sub `8bec8b7e` | `Enforce-ALZ-Sandbox` | 2 rules | none |
+| `dp-sandbox-networking` | sub `8bec8b7e` | `Enforce-ALZ-Sandbox` | `SandboxDenyVnetPeering`, `SandboxNotAllowed` | none |
 
 ## Effective matrix
 
