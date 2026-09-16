@@ -194,8 +194,6 @@ management_group_settings = {
   # can't manage MG placement). See README-VISIUM.md.
   subscription_placement = {}
   # Keys are management-group ids from the architecture definition.
-  # Deny policies start non-blocking (audit): add `enforcement_mode = "DoNotEnforce"`
-  # per Deny-* assignment once the first plan lists them.
   policy_assignments_to_modify = {
     visium = {
       policy_assignments = {
@@ -237,6 +235,17 @@ management_group_settings = {
     "visium-landing-zones" = {
       policy_assignments = {
         Enable-DDoS-VNET = { creation_enabled = false }
+        Enforce-Subnet-Private = {
+          enforcement_mode = "Default"
+          parameters = {
+            effect = "Audit"
+          }
+        }
+      }
+    }
+    "visium-online" = {
+      policy_assignments = {
+        Deny-Public-Endpoints = { enforcement_mode = "DoNotEnforce" }
       }
     }
     "visium-corp" = {

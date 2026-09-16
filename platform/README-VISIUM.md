@@ -53,11 +53,13 @@ are **tenant-global** and the pre-existing structure already used `platform` /
 | Resource group + AMA identity | 2 | free | in `sub-visium-management` |
 | **Subscription placements** | **0** | — | **deferred** (see next steps) |
 
-Policy assignments per MG (audit-first): `visium-landing-zones` ~52, `visium-platform`
-~40, `visium` (root) ~16, `visium-identity`/`visium-corp` ~4 each, `visium-sandbox` /
-`visium-decommissioned` 1 each. Deny policies start **non-blocking (audit / DoNotEnforce)**;
-`visium-online` is permissive (product carve-out). Removed `Deploy-MCSB2-Monitoring`
-(needs Event Hub/Storage diagnostic targets we don't have).
+Policy assignments per MG: `visium-landing-zones` ~52, `visium-platform` ~40, `visium`
+(root) ~20, `visium-identity`/`visium-corp` ~4 each, `visium-sandbox` /
+`visium-decommissioned` 1 each. **Deny policies are BLOCKING** — ALZ ships
+every `Deny-*` assignment at `enforcement_mode = "Default"` and we never overrode it. What
+*is* off is the `Enforce-GR-*` guardrail family (`DoNotEnforce` upstream). `visium-online`
+is the permissive product carve-out. Full effective matrix + rollout plan: **[POLICY.md](POLICY.md)**.
+Removed `Deploy-MCSB2-Monitoring` (needs Event Hub/Storage diagnostic targets we don't have).
 
 The management sub's resource providers are registered by the pipeline (SP) before apply
 (`.github/workflows/platform-landing-zone.yml`), because a brand-new sub has none and

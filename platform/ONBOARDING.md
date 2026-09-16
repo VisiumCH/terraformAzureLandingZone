@@ -76,10 +76,18 @@ Then:
   overridable per subscription. Notifies at **50 / 80 / 100 %** of actual spend, plus
   **100 % of forecast** as an early warning, into `#feed-infra-alerts` via the shared
   action group. A budget **caps nothing** — it makes spend visible.
-* **Policy baseline** from the parent management group:
-  * *Corp / Online:* deny policies **enforced** (no public endpoints unless justified, NSGs
-    required, no unmanaged disks, …). Exceptions need a scoped, time-boxed policy
-    **exemption**.
+* **Policy baseline** from the parent management group — full matrix in
+  [POLICY.md](POLICY.md):
+  * *Corp:* deny policies are **blocking, today**. `Deny-Public-Endpoints` covers **45
+    PaaS services** — storage, Key Vault, SQL, Cosmos, AKS, ACR, OpenAI, ML, Container
+    Apps, Event Hub, Service Bus, Synapse and more. **Plan for private endpoints from
+    the first line of your IaC**: a workload that reaches its data services over public
+    network access will not deploy into corp at all. Also enforced: NSG on every
+    subnet, HTTPS/TLS only, no unmanaged disks, no public IP on a NIC, no
+    hybrid-networking resources. Exceptions need a scoped, time-boxed policy
+    **exemption** — ask in `#it-support` before you build around one.
+  * *Online:* permissive product carve-out. Public endpoints are **audited, not
+    blocked** — you'll show up on the compliance report, but nothing stops you.
   * *Sandbox / Consulting:* permissive, but **public-resource creation triggers a Slack
     alert** (`platform/main.alerting.tf`).
 * **IaC-only enforcement** (corp / online) — the portal is read-only; deployments run
