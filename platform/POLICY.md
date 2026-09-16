@@ -9,6 +9,14 @@ What ALZ ships **off** (`DoNotEnforce`): the 30 `Enforce-GR-*`
 per-service guardrail initiatives, plus `Enforce-Subnet-Private` and
 `Enforce-Encrypt-CMK0`, at both `visium-landing-zones` and `visium-platform`.
 
+### Live exemptions
+
+| Name | Scope | Assignment | Rules | Expires |
+|---|---|---|---|---|
+| `customer-demo-networking` | MG `customer-demo` | `Enforce-ALZ-Sandbox` | `SandboxDenyVnetPeering`, `SandboxNotAllowed` | none — temp MG |
+| `consulting-sandbox-peering` | sub `f12e214d` | `Enforce-ALZ-Sandbox` | `SandboxDenyVnetPeering` | none |
+| `dp-sandbox-networking` | sub `8bec8b7e` | `Enforce-ALZ-Sandbox` | 2 rules | none |
+
 ## Effective matrix
 
 | MG | Blocking | Assigned, non-blocking |
@@ -42,17 +50,6 @@ allowed by design.
 * **`Enforce-Subnet-Private` at `Deny`** — rejects subnets keeping Azure's implicit
   outbound access. `azurerm` and `azure-native` both default that to `true`, so `Deny`
   breaks naive subnet definitions. It is set to `Default` + `Audit` instead.
-
-
-
-### Live exemptions
-
-| Name | Scope | Assignment | Rules | Expires |
-|---|---|---|---|---|
-| `customer-demo-networking` | MG `customer-demo` | `Enforce-ALZ-Sandbox` | `SandboxDenyVnetPeering`, `SandboxNotAllowed` | none — temp MG |
-| `consulting-sandbox-peering` | sub `f12e214d` | `Enforce-ALZ-Sandbox` | `SandboxDenyVnetPeering` | none |
-| `dp-sandbox-networking` | sub `8bec8b7e` | `Enforce-ALZ-Sandbox` | 2 rules | none |
-
 
 
 ## Verify
