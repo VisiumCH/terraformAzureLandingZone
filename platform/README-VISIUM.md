@@ -127,10 +127,16 @@ Reserved per hub (deployed only when the matching toggle flips): `AzureFirewallS
 `x.x.0.0/26`, `AzureBastionSubnet` `x.x.0.64/26`, `GatewaySubnet` `x.x.0.128/27`,
 DNS-resolver `x.x.0.160/28`, `AzureFirewallManagementSubnet` `x.x.0.192/26`.
 
-> ⚠️ **Known overlap.** `vnet01` in Visium Labs (`rg-visium-bench-demo`) is
-> `172.16.0.0/26`, inside the primary hub's space. It sits in `visium-sandbox`
-> where peering is denied, so it is inert — but that VNet has to be re-addressed
-> before Labs could ever become a spoke.
+> **Known overlap, deliberately left alone.** `vnet01` in Visium Labs
+> (`rg-visium-bench-demo`) is `172.16.0.0/26`, inside the primary hub's space.
+> This is harmless: `visium-sandbox` is isolated by design — `SandboxDenyVnetPeering`
+> and `SandboxNotAllowed` block peering and gateways — and overlapping ranges in
+> VNets that never connect do not interact. It is also in use (it backs a Container
+> Apps managed environment, whose infrastructure subnet cannot be re-addressed after
+> creation), so re-addressing it would mean rebuilding that environment for no
+> benefit. The overlap would only become real if that subscription were promoted out
+> of sandbox into corp/online — which is why address checking belongs in the
+> onboarding checks for a candidate spoke.
 
 ### What is on, and what it costs
 

@@ -154,9 +154,8 @@ custom_replacements = {
     # platform services below (firewall / bastion / gateway / resolver, deployed or
     # not) and x.x.1.0/24 onwards is for hub workload subnets.
     #
-    # ⚠ `vnet01` in Visium Labs (rg-visium-bench-demo) is 172.16.0.0/26 and overlaps
-    # the primary hub. It sits in visium-sandbox where peering is denied, so it is
-    # inert today, but that VNet must be re-addressed before Labs can ever peer.
+    # `vnet01` in Visium Labs (rg-visium-bench-demo) is 172.16.0.0/26, inside the
+    # primary hub's space. But sandbox is isolated by design.
 
     # Primary regional address space: 172.16.0.0/16
     primary_hub_address_space                          = "172.16.0.0/16"
@@ -324,8 +323,8 @@ management_group_settings = {
 # --- Networking: three-region hub & spoke in the dedicated connectivity sub ---
 # Hubs are meshed to each other automatically (`mesh_peering_enabled`, on by
 # default): Switzerland North <-> Sweden Central <-> France Central. Firewalls,
-# bastions and gateways stay off; France additionally carries the private DNS
-# zones. Spokes attach through `spoke_virtual_network_peerings` below.
+# bastions, gateways and private DNS stay off in all three. Spokes attach through
+# `spoke_virtual_network_peerings` below.
 connectivity_type = "hub_and_spoke_vnet"
 
 connectivity_resource_groups = {
