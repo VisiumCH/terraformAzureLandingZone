@@ -109,6 +109,62 @@ Hub subnets are empty. **No spokes peered yet** — migrated workloads sit in
 deliberately isolated). The `customer-demo` temp MG has a scoped waiver so its spokes
 can peer to a demo hub.
 
+### VPN — Tailscale subnet routers (AZU-8)
+
+Remote access is Tailscale, not a VPN gateway. Two subnet routers
+(`vm-tailscale-chn-01`, `vm-tailscale-chn-02`) sit in the Switzerland North hub's
+`snet-vpn` (`172.16.1.0/27`), one per availability zone, both advertising the
+regional hub spaces. Tailscale fails over between routers advertising the same
+routes, so either one can be lost.
+
+Deployed by `main.connectivity.tailscale.tf`, configured under
+`tailscale_subnet_routers` in `management.tfvars`:
+
+- **Public IPs on purpose.** A public IP lets Tailscale build direct UDP
+  connections instead of relaying through DERP. The NSG allows only UDP 41641
+  from the internet and anything from the tailnet CGNAT range `100.64.0.0/10`;
+  Azure's default rules deny the rest, so there is no inbound SSH. Creating them
+  fires the public-resource Slack alert — expected, not a surprise.
+- **IP forwarding** is on at the NIC (Azure side) and via sysctl (OS side). Both
+  are required; a subnet router with only one of them looks healthy and silently
+  fails to route.
+- **SNAT stays on** (Tailscale's default), so replies from Azure workloads return
+  through the router and no spoke needs a route for `100.64.0.0/10`.
+- **Access** is Tailscale SSH. The generated break-glass key is the sensitive
+  output `tailscale_break_glass_private_key`, usable only from inside the tailnet
+  or the serial console.
+- **Auth key** comes from the `TAILSCALE_AUTH_KEY` repo secret (reusable,
+  pre-approved, tagged). It is passed through cloud-init, so rotate it once the
+  routers are up. `custom_data` is in `ignore_changes`: cloud-init only runs on
+  first boot, so re-rendering it must not silently replace a working router —
+  rebuild deliberately with `terraform taint`.
+
+**After the first apply**, in the Tailscale admin console: approve both machines,
+then approve their advertised subnet routes. Nothing routes until you do.
+
+**Replacing the Pulumi router.** The original `tailscale-router` VM lives in
+`rg-hub-shared-dev` in the **Visium Consulting** subscription (`f12e214d…`), tagged
+`managed-by: pulumi`, project `azure-hub-infrastructure`. It stays up during the
+cutover. Two things to know when comparing behaviour:
+
+- Its NIC has **`enableIPForwarding` unset**, so Azure drops any packet it tries to
+  forward on behalf of another host. It can serve as a tailnet node but not as a
+  working subnet router. The new routers set it explicitly.
+- It reaches the internet through a NAT gateway with no public IP of its own, so its
+  Tailscale connections relay through DERP rather than connecting directly.
+
+Once the new routers are approved and verified, remove the old one from its Pulumi
+stack and delete the machine in the Tailscale console. Still open for this ticket:
+streaming Tailscale audit logs to the central workspace, and writing down the
+access/onboarding process.
+
+**Note on ordering.** This branch is written against `main`. AZU-14 moves the hubs
+into the dedicated connectivity subscription and adds the France Central region; if
+that lands first, rebase this branch onto it and extend
+`tailscale_advertise_routes` with `172.18.0.0/16`.
+
+---
+
 ### Target (AZU-14)
 
 - **Dedicated connectivity subscription** — split hubs out of the management sub into `visium-connectivity`.

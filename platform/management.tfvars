@@ -51,11 +51,15 @@ custom_replacements = {
     secondary_private_dns_resolver_enabled                                 = false
     secondary_bastion_enabled                                              = false
 
+    # Tailscale subnet routers (the platform VPN entry point) live in the primary hub.
+    tailscale_enabled = true
+
     # Resource group names
     management_resource_group_name                 = "rg-management-$${starter_location_01}"
     connectivity_hub_primary_resource_group_name   = "rg-hub-$${starter_location_01}"
     connectivity_hub_secondary_resource_group_name = "rg-hub-$${starter_location_02}"
     dns_resource_group_name                        = "rg-hub-dns-$${starter_location_01}"
+    vpn_resource_group_name                        = "rg-vpn-$${starter_location_01}"
     ddos_resource_group_name                       = "rg-hub-ddos-$${starter_location_01}"
     asc_export_resource_group_name                 = "rg-asc-export-$${starter_location_01}"
     service_health_alerts_resource_group_name      = "rg-service-health-alerts-$${starter_location_01}"
@@ -116,6 +120,7 @@ custom_replacements = {
     primary_bastion_subnet_address_prefix              = "172.16.0.64/26"
     primary_gateway_subnet_address_prefix              = "172.16.0.128/27"
     primary_private_dns_resolver_subnet_address_prefix = "172.16.0.160/28"
+    primary_vpn_subnet_address_prefix                  = "172.16.1.0/27"
     # Secondary regional address space: 172.17.0.0/16
     secondary_hub_address_space                          = "172.17.0.0/16"
     secondary_hub_virtual_network_address_space          = "172.17.0.0/22"
@@ -281,6 +286,13 @@ connectivity_resource_groups = {
       enabled = true
     }
   }
+  vpn = {
+    name     = "$${vpn_resource_group_name}"
+    location = "$${starter_location_01}"
+    settings = {
+      enabled = "$${tailscale_enabled}"
+    }
+  }
   dns = {
     name     = "$${dns_resource_group_name}"
     location = "$${starter_location_01}"
@@ -319,7 +331,15 @@ hub_virtual_networks = {
       routing_address_space         = ["$${primary_hub_address_space}"]
       route_table_name_firewall     = "$${primary_route_table_firewall_name}"
       route_table_name_user_subnets = "$${primary_route_table_user_subnets_name}"
-      subnets                       = {}
+      # No firewall in the hub, so nothing to force traffic through: the VPN subnet
+      # keeps Azure's system routes rather than the module's user-subnet route table.
+      subnets = {
+        vpn = {
+          name             = "snet-vpn"
+          address_prefixes = ["$${primary_vpn_subnet_address_prefix}"]
+          route_table      = { assign_generated_route_table = false }
+        }
+      }
     }
     firewall = {
       subnet_address_prefix            = "$${primary_firewall_subnet_address_prefix}"
@@ -481,6 +501,18 @@ hub_virtual_networks = {
     }
   }
 }
+
+# --- VPN: Tailscale subnet routers (the platform's remote-access path) ---
+# Two routers in the Switzerland North hub, one per availability zone, both
+# advertising the regional hub spaces so either can fail. The routes and both
+# machines must be approved once in the Tailscale admin console before traffic
+# flows.
+tailscale_subnet_routers = {
+  chn-01 = { hub_key = "primary", subnet_name = "snet-vpn", zone = "1" }
+  chn-02 = { hub_key = "primary", subnet_name = "snet-vpn", zone = "2" }
+}
+
+tailscale_advertise_routes = ["172.16.0.0/16", "172.17.0.0/16"]
 
 enable_telemetry = true
 telemetry_additional_content = {

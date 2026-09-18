@@ -61,6 +61,7 @@ jobs:
       - name: Terraform Plan
         env:
           TF_VAR_slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TF_VAR_tailscale_auth_key: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           set -o pipefail
           # The ALZ module refreshes ~600 resources on every plan, and those

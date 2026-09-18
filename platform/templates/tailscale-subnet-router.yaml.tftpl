@@ -1,0 +1,28 @@
+#cloud-config
+# Tailscale subnet router. Advertises the hub address spaces into the tailnet so
+# tailnet clients reach Azure private IPs without a VPN gateway. Routes still have
+# to be approved once per router in the Tailscale admin console.
+package_update: true
+package_upgrade: true
+
+write_files:
+  # Forwarding for other hosts' traffic. The NIC also needs Azure-side IP
+  # forwarding, which Terraform sets on the network interface.
+  - path: /etc/sysctl.d/99-tailscale.conf
+    permissions: '0644'
+    content: |
+      net.ipv4.ip_forward = 1
+      net.ipv6.conf.all.forwarding = 1
+
+runcmd:
+  - [ sysctl, -p, /etc/sysctl.d/99-tailscale.conf ]
+  - curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+  - curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/jammy.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list
+  - [ apt-get, update ]
+  - [ apt-get, install, -y, tailscale ]
+  # --accept-dns=false: the router keeps Azure-provided DNS so it can still
+  # resolve privatelink zones; it must not adopt the tailnet's resolver.
+  # SNAT stays on (the default), so replies from Azure workloads come back to the
+  # router without every spoke needing a user-defined route for 100.64.0.0/10.
+  - tailscale up --authkey='${auth_key}' --hostname='${hostname}' --advertise-routes='${advertise_routes}' --accept-dns=false --ssh
+  - [ tailscale, set, --auto-update ]

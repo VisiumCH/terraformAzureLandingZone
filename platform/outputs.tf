@@ -209,3 +209,19 @@ output "virtual_wan_full_output" {
 output "templated_inputs" {
   value = module.config.outputs
 }
+
+output "tailscale_subnet_router_private_ip_addresses" {
+  value       = { for key, nic in azurerm_network_interface.tailscale : key => nic.private_ip_address }
+  description = "Private IP of each Tailscale subnet router, per router key."
+}
+
+output "tailscale_subnet_router_public_ip_addresses" {
+  value       = { for key, pip in azurerm_public_ip.tailscale : key => pip.ip_address }
+  description = "Public IP of each Tailscale subnet router. Inbound is limited to Tailscale's UDP port and the tailnet CGNAT range."
+}
+
+output "tailscale_break_glass_private_key" {
+  value       = length(tls_private_key.tailscale) > 0 ? tls_private_key.tailscale[0].private_key_openssh : null
+  sensitive   = true
+  description = "Break-glass SSH key for the router VMs. Day-to-day access is Tailscale SSH; this only works from inside the tailnet or the serial console."
+}
