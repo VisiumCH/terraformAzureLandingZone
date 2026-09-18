@@ -115,6 +115,14 @@ jobs:
               --subscription 8745729a-505a-4910-aaaf-d53b9cdc8883 --wait
           done
 
+      # Same for the connectivity subscription, which carries the hub VNets.
+      - name: Register resource providers (connectivity subscription)
+        run: |
+          for ns in Microsoft.Network Microsoft.PolicyInsights; do
+            az provider register --namespace "$ns" \
+              --subscription 705238f3-9d51-4fc9-976a-e1859373bdd0 --wait
+          done
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 

@@ -209,3 +209,13 @@ output "virtual_wan_full_output" {
 output "templated_inputs" {
   value = module.config.outputs
 }
+
+output "spoke_virtual_network_peering_resource_ids" {
+  value = {
+    for key in keys(local.spoke_peerings) : key => {
+      hub_to_spoke = azapi_resource.hub_to_spoke_peering[key].id
+      spoke_to_hub = azapi_resource.spoke_to_hub_peering[key].id
+    }
+  }
+  description = "Both directions of each spoke-to-hub peering, per spoke key."
+}
