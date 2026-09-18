@@ -2,18 +2,20 @@
 # Visium greenfield platform landing zone — inputs for the ALZ accelerator.
 # Tokens like $${starter_location_01} are accelerator built-in replacements.
 
-# Multi-region: primary Switzerland North (billing + residency), secondary Sweden Central (LLM/DR).
-starter_locations = ["switzerlandnorth", "swedencentral"]
+# Multi-region: primary Switzerland North (billing + residency), secondary Sweden
+# Central (LLM/DR), tertiary France Central (customer workloads).
+starter_locations = ["switzerlandnorth", "swedencentral", "francecentral"]
 
 # The `visium` intermediate root is created directly under the TENANT ROOT
 # (tenant-root management-group id == the Entra tenant id).
 root_parent_management_group_id = "b7418ead-a445-4708-a309-951ab14852eb"
 
-# `connectivity` points at the Management sub for now (no dedicated connectivity
-# sub yet) so the hub VNets land there. `identity` is reserved.
+# Hubs, hub DNS and the VPN routers live in the dedicated connectivity sub, which
+# sits under the `visium-connectivity` management group. `identity` is reserved and
+# still points at Management (no identity sub yet).
 subscription_ids = {
   management   = "8745729a-505a-4910-aaaf-d53b9cdc8883"
-  connectivity = "8745729a-505a-4910-aaaf-d53b9cdc8883"
+  connectivity = "705238f3-9d51-4fc9-976a-e1859373bdd0"
   identity     = "8745729a-505a-4910-aaaf-d53b9cdc8883"
 }
 
@@ -51,11 +53,31 @@ custom_replacements = {
     secondary_private_dns_resolver_enabled                                 = false
     secondary_bastion_enabled                                              = false
 
+    # Tertiary connectivity (France Central): same minimal posture as the other two.
+    # Private DNS zones OFF — the France workloads (customer-demo dataplatform) are
+    # already served by the customer-demo hub's own zones and DNS resolver, and a
+    # second zone of the same name is a resolution hazard once both are linked to a
+    # shared VNet. Those zones move here when customer-demo leaves the temp MG.
+    # Turning the firewall on: flip `tertiary_firewall_enabled` to true — the subnet,
+    # policy, route tables and public IPs are already named and sized below.
+    tertiary_firewall_enabled                                             = false
+    tertiary_firewall_sku_tier                                            = "Standard"
+    tertiary_firewall_management_ip_enabled                               = false
+    tertiary_virtual_network_gateway_express_route_enabled                = false
+    tertiary_virtual_network_gateway_express_route_hobo_public_ip_enabled = false
+    tertiary_virtual_network_gateway_vpn_enabled                          = false
+    tertiary_private_dns_zones_enabled                                    = false
+    tertiary_private_dns_auto_registration_zone_enabled                   = false
+    tertiary_private_dns_resolver_enabled                                 = false
+    tertiary_bastion_enabled                                              = false
+
     # Resource group names
     management_resource_group_name                 = "rg-management-$${starter_location_01}"
     connectivity_hub_primary_resource_group_name   = "rg-hub-$${starter_location_01}"
     connectivity_hub_secondary_resource_group_name = "rg-hub-$${starter_location_02}"
+    connectivity_hub_tertiary_resource_group_name  = "rg-hub-$${starter_location_03}"
     dns_resource_group_name                        = "rg-hub-dns-$${starter_location_01}"
+    dns_tertiary_resource_group_name               = "rg-hub-dns-$${starter_location_03}"
     ddos_resource_group_name                       = "rg-hub-ddos-$${starter_location_01}"
     asc_export_resource_group_name                 = "rg-asc-export-$${starter_location_01}"
     service_health_alerts_resource_group_name      = "rg-service-health-alerts-$${starter_location_01}"
@@ -102,11 +124,38 @@ custom_replacements = {
     secondary_bastion_host_name                                    = "bas-hub-$${starter_location_02}"
     secondary_bastion_host_public_ip_name                          = "pip-bastion-hub-$${starter_location_02}"
 
+    # Resource names — tertiary connectivity (France Central)
+    tertiary_virtual_network_name                                 = "vnet-hub-$${starter_location_03}"
+    tertiary_firewall_name                                        = "fw-hub-$${starter_location_03}"
+    tertiary_firewall_policy_name                                 = "fwp-hub-$${starter_location_03}"
+    tertiary_firewall_public_ip_name                              = "pip-fw-hub-$${starter_location_03}"
+    tertiary_firewall_management_public_ip_name                   = "pip-fw-hub-mgmt-$${starter_location_03}"
+    tertiary_route_table_firewall_name                            = "rt-hub-fw-$${starter_location_03}"
+    tertiary_route_table_user_subnets_name                        = "rt-hub-std-$${starter_location_03}"
+    tertiary_virtual_network_gateway_express_route_name           = "vgw-hub-er-$${starter_location_03}"
+    tertiary_virtual_network_gateway_express_route_public_ip_name = "pip-vgw-hub-er-$${starter_location_03}"
+    tertiary_virtual_network_gateway_vpn_name                     = "vgw-hub-vpn-$${starter_location_03}"
+    tertiary_virtual_network_gateway_vpn_public_ip_name_1         = "pip-vgw-hub-vpn-$${starter_location_03}-001"
+    tertiary_virtual_network_gateway_vpn_public_ip_name_2         = "pip-vgw-hub-vpn-$${starter_location_03}-002"
+    tertiary_private_dns_resolver_name                            = "pdr-hub-dns-$${starter_location_03}"
+    tertiary_bastion_host_name                                    = "bas-hub-$${starter_location_03}"
+    tertiary_bastion_host_public_ip_name                          = "pip-bastion-hub-$${starter_location_03}"
+
     # Private DNS auto-registration zones
     primary_auto_registration_zone_name   = "$${starter_location_01}.azure.local"
     secondary_auto_registration_zone_name = "$${starter_location_02}.azure.local"
+    tertiary_auto_registration_zone_name  = "$${starter_location_03}.azure.local"
 
-    # --- IP ranges — 
+    # --- IP ranges ---
+    #
+    # One /16 per region out of 172.16.0.0/12; each hub VNet takes the first /22 of
+    # its region and spokes are carved from the rest of that /16, so a single route
+    # covers a whole region. Inside each hub VNet, x.x.0.0/24 is reserved for the
+    # platform services below (firewall / bastion / gateway / resolver, deployed or
+    # not) and x.x.1.0/24 onwards is for hub workload subnets.
+    #
+    # `vnet01` in Visium Labs (rg-visium-bench-demo) is 172.16.0.0/26, inside the
+    # primary hub's space. But sandbox is isolated by design.
 
     # Primary regional address space: 172.16.0.0/16
     primary_hub_address_space                          = "172.16.0.0/16"
@@ -116,6 +165,7 @@ custom_replacements = {
     primary_bastion_subnet_address_prefix              = "172.16.0.64/26"
     primary_gateway_subnet_address_prefix              = "172.16.0.128/27"
     primary_private_dns_resolver_subnet_address_prefix = "172.16.0.160/28"
+    primary_private_endpoint_subnet_address_prefix     = "172.16.1.32/27"
     # Secondary regional address space: 172.17.0.0/16
     secondary_hub_address_space                          = "172.17.0.0/16"
     secondary_hub_virtual_network_address_space          = "172.17.0.0/22"
@@ -124,13 +174,27 @@ custom_replacements = {
     secondary_bastion_subnet_address_prefix              = "172.17.0.64/26"
     secondary_gateway_subnet_address_prefix              = "172.17.0.128/27"
     secondary_private_dns_resolver_subnet_address_prefix = "172.17.0.160/28"
+    secondary_private_endpoint_subnet_address_prefix     = "172.17.1.0/27"
+    # Tertiary regional address space: 172.18.0.0/16
+    # Verified non-overlapping with the France Central VNets already in the tenant
+    # (customer-demo hub 10.120.0.0/24, dp-dev 10.121.0.0/20, dp-auth 10.125.0.0/24).
+    tertiary_hub_address_space                          = "172.18.0.0/16"
+    tertiary_hub_virtual_network_address_space          = "172.18.0.0/22"
+    tertiary_firewall_subnet_address_prefix             = "172.18.0.0/26"
+    tertiary_firewall_management_subnet_address_prefix  = "172.18.0.192/26"
+    tertiary_bastion_subnet_address_prefix              = "172.18.0.64/26"
+    tertiary_gateway_subnet_address_prefix              = "172.18.0.128/27"
+    tertiary_private_dns_resolver_subnet_address_prefix = "172.18.0.160/28"
+    tertiary_private_endpoint_subnet_address_prefix     = "172.18.1.0/27"
   }
   resource_group_identifiers = {
     management_resource_group_id             = "/subscriptions/$${subscription_id_management}/resourcegroups/$${management_resource_group_name}"
     ddos_protection_plan_resource_group_id   = "/subscriptions/$${subscription_id_connectivity}/resourcegroups/$${ddos_resource_group_name}"
     primary_connectivity_resource_group_id   = "/subscriptions/$${subscription_id_connectivity}/resourceGroups/$${connectivity_hub_primary_resource_group_name}"
     secondary_connectivity_resource_group_id = "/subscriptions/$${subscription_id_connectivity}/resourceGroups/$${connectivity_hub_secondary_resource_group_name}"
+    tertiary_connectivity_resource_group_id  = "/subscriptions/$${subscription_id_connectivity}/resourceGroups/$${connectivity_hub_tertiary_resource_group_name}"
     dns_resource_group_id                    = "/subscriptions/$${subscription_id_connectivity}/resourceGroups/$${dns_resource_group_name}"
+    dns_tertiary_resource_group_id           = "/subscriptions/$${subscription_id_connectivity}/resourceGroups/$${dns_tertiary_resource_group_name}"
   }
   resource_identifiers = {
     ama_change_tracking_data_collection_rule_id = "$${management_resource_group_id}/providers/Microsoft.Insights/dataCollectionRules/$${dcr_change_tracking_name}"
@@ -256,7 +320,11 @@ management_group_settings = {
   }
 }
 
-# --- Networking: multi-region hub & spoke, MINIMAL (no firewall/bastion/gateways/DDoS) ---
+# --- Networking: three-region hub & spoke in the dedicated connectivity sub ---
+# Hubs are meshed to each other automatically (`mesh_peering_enabled`, on by
+# default): Switzerland North <-> Sweden Central <-> France Central. Firewalls,
+# bastions, gateways and private DNS stay off in all three. Spokes attach through
+# `spoke_virtual_network_peerings` below.
 connectivity_type = "hub_and_spoke_vnet"
 
 connectivity_resource_groups = {
@@ -267,16 +335,23 @@ connectivity_resource_groups = {
       enabled = "$${ddos_protection_plan_enabled}"
     }
   }
-  vnet_primary = {
+  hub_primary = {
     name     = "$${connectivity_hub_primary_resource_group_name}"
     location = "$${starter_location_01}"
     settings = {
       enabled = true
     }
   }
-  vnet_secondary = {
+  hub_secondary = {
     name     = "$${connectivity_hub_secondary_resource_group_name}"
     location = "$${starter_location_02}"
+    settings = {
+      enabled = true
+    }
+  }
+  hub_tertiary = {
+    name     = "$${connectivity_hub_tertiary_resource_group_name}"
+    location = "$${starter_location_03}"
     settings = {
       enabled = true
     }
@@ -286,6 +361,13 @@ connectivity_resource_groups = {
     location = "$${starter_location_01}"
     settings = {
       enabled = "$${primary_private_dns_zones_enabled}"
+    }
+  }
+  dns_tertiary = {
+    name     = "$${dns_tertiary_resource_group_name}"
+    location = "$${starter_location_03}"
+    settings = {
+      enabled = "$${tertiary_private_dns_zones_enabled}"
     }
   }
 }
@@ -319,7 +401,16 @@ hub_virtual_networks = {
       routing_address_space         = ["$${primary_hub_address_space}"]
       route_table_name_firewall     = "$${primary_route_table_firewall_name}"
       route_table_name_user_subnets = "$${primary_route_table_user_subnets_name}"
-      subnets                       = {}
+      # No firewall in the hub, so nothing to force traffic through: the subnets
+      # below keep Azure's system routes (direct via peering) rather than the
+      # module's generated user-subnet route table.
+      subnets = {
+        private_endpoints = {
+          name             = "snet-pep"
+          address_prefixes = ["$${primary_private_endpoint_subnet_address_prefix}"]
+          route_table      = { assign_generated_route_table = false }
+        }
+      }
     }
     firewall = {
       subnet_address_prefix            = "$${primary_firewall_subnet_address_prefix}"
@@ -408,7 +499,13 @@ hub_virtual_networks = {
       routing_address_space         = ["$${secondary_hub_address_space}"]
       route_table_name_firewall     = "$${secondary_route_table_firewall_name}"
       route_table_name_user_subnets = "$${secondary_route_table_user_subnets_name}"
-      subnets                       = {}
+      subnets = {
+        private_endpoints = {
+          name             = "snet-pep"
+          address_prefixes = ["$${secondary_private_endpoint_subnet_address_prefix}"]
+          route_table      = { assign_generated_route_table = false }
+        }
+      }
     }
     firewall = {
       subnet_address_prefix            = "$${secondary_firewall_subnet_address_prefix}"
@@ -480,7 +577,112 @@ hub_virtual_networks = {
       }
     }
   }
+  tertiary = {
+    location          = "$${starter_location_03}"
+    default_parent_id = "$${tertiary_connectivity_resource_group_id}"
+    enabled_resources = {
+      firewall                              = "$${tertiary_firewall_enabled}"
+      bastion                               = "$${tertiary_bastion_enabled}"
+      virtual_network_gateway_express_route = "$${tertiary_virtual_network_gateway_express_route_enabled}"
+      virtual_network_gateway_vpn           = "$${tertiary_virtual_network_gateway_vpn_enabled}"
+      private_dns_zones                     = "$${tertiary_private_dns_zones_enabled}"
+      private_dns_resolver                  = "$${tertiary_private_dns_resolver_enabled}"
+    }
+    hub_virtual_network = {
+      name                          = "$${tertiary_virtual_network_name}"
+      address_space                 = ["$${tertiary_hub_virtual_network_address_space}"]
+      routing_address_space         = ["$${tertiary_hub_address_space}"]
+      route_table_name_firewall     = "$${tertiary_route_table_firewall_name}"
+      route_table_name_user_subnets = "$${tertiary_route_table_user_subnets_name}"
+      subnets = {
+        private_endpoints = {
+          name             = "snet-pep"
+          address_prefixes = ["$${tertiary_private_endpoint_subnet_address_prefix}"]
+          route_table      = { assign_generated_route_table = false }
+        }
+      }
+    }
+    firewall = {
+      subnet_address_prefix            = "$${tertiary_firewall_subnet_address_prefix}"
+      management_subnet_address_prefix = "$${tertiary_firewall_management_subnet_address_prefix}"
+      name                             = "$${tertiary_firewall_name}"
+      sku_tier                         = "$${tertiary_firewall_sku_tier}"
+      default_ip_configuration = {
+        public_ip_config = {
+          name = "$${tertiary_firewall_public_ip_name}"
+        }
+      }
+      management_ip_enabled = "$${tertiary_firewall_management_ip_enabled}"
+      management_ip_configuration = {
+        public_ip_config = {
+          name = "$${tertiary_firewall_management_public_ip_name}"
+        }
+      }
+    }
+    firewall_policy = {
+      name = "$${tertiary_firewall_policy_name}"
+      sku  = "$${tertiary_firewall_sku_tier}"
+    }
+    virtual_network_gateways = {
+      subnet_address_prefix = "$${tertiary_gateway_subnet_address_prefix}"
+      express_route = {
+        name                                  = "$${tertiary_virtual_network_gateway_express_route_name}"
+        hosted_on_behalf_of_public_ip_enabled = "$${tertiary_virtual_network_gateway_express_route_hobo_public_ip_enabled}"
+        ip_configurations = {
+          default = {
+            public_ip = {
+              name = "$${tertiary_virtual_network_gateway_express_route_public_ip_name}"
+            }
+          }
+        }
+      }
+      vpn = {
+        name = "$${tertiary_virtual_network_gateway_vpn_name}"
+        ip_configurations = {
+          active_active_1 = {
+            public_ip = {
+              name = "$${tertiary_virtual_network_gateway_vpn_public_ip_name_1}"
+            }
+          }
+          active_active_2 = {
+            public_ip = {
+              name = "$${tertiary_virtual_network_gateway_vpn_public_ip_name_2}"
+            }
+          }
+        }
+      }
+    }
+    private_dns_zones = {
+      parent_id = "$${dns_tertiary_resource_group_id}"
+      # Filter off means this hub would own the full private-link zone set rather
+      # than only region-scoped zones. Relevant only once the toggle above is on —
+      # and then only if no other hub already owns the global zones.
+      private_link_private_dns_zones_regex_filter = {
+        enabled = false
+      }
+      auto_registration_zone_enabled = "$${tertiary_private_dns_auto_registration_zone_enabled}"
+      auto_registration_zone_name    = "$${tertiary_auto_registration_zone_name}"
+    }
+    private_dns_resolver = {
+      subnet_address_prefix = "$${tertiary_private_dns_resolver_subnet_address_prefix}"
+      name                  = "$${tertiary_private_dns_resolver_name}"
+    }
+    bastion = {
+      subnet_address_prefix = "$${tertiary_bastion_subnet_address_prefix}"
+      name                  = "$${tertiary_bastion_host_name}"
+      bastion_public_ip = {
+        name = "$${tertiary_bastion_host_public_ip_name}"
+      }
+    }
+  }
 }
+
+# --- Spoke peering ---
+# Empty on purpose: every migrated workload currently sits in `visium-sandbox`,
+# where `SandboxDenyVnetPeering` blocks peering and isolation is deliberate. A
+# spoke becomes eligible once its subscription moves to `visium-corp` or
+# `visium-online`; add it here with its VNet resource ID at that point.
+spoke_virtual_network_peerings = {}
 
 enable_telemetry = true
 telemetry_additional_content = {

@@ -15,7 +15,11 @@ Consulting / corp / online), how to request a landing zone, and what it comes wi
 
 **Status:** ✅ core **deployed** (Aug 7 2026) — governance + central logging.
 ✅ networking + tagging **deployed** (Aug 11 2026) — `Apply complete! 36 added, 2 changed, 0 destroyed`:
-two-region hub (`vnet-hub-switzerlandnorth` 172.16.0.0/22 + `vnet-hub-swedencentral` 172.17.0.0/22, peered) and mandatory-tag inheritance. Platform Terraform is effectively complete; the rest is migrating subscriptions in and letting workloads (Pulumi) attach to the hub.
+two-region hub (`vnet-hub-switzerlandnorth` 172.16.0.0/22 + `vnet-hub-swedencentral` 172.17.0.0/22, peered) and mandatory-tag inheritance.
+🟡 network build-out **pending apply** — dedicated connectivity subscription, a third
+hub region (France Central), hub subnets and a spoke-peering path. See **[Networking](#networking)**; the hub move needs the one-time migration step
+documented there. The rest is migrating subscriptions in and letting workloads (Pulumi)
+attach to the hub.
 
 ---
 
@@ -24,7 +28,7 @@ two-region hub (`vnet-hub-switzerlandnorth` 172.16.0.0/22 + `vnet-hub-swedencent
 ```
 Tenant Root
 ├── visium
-│   ├── visium-platform ── visium-management (LAW + Sentinel) / visium-connectivity / visium-identity
+│   ├── visium-platform ── visium-management (LAW + Sentinel) / visium-connectivity (hubs, DNS, VPN) / visium-identity
 │   ├── visium-landing-zones ── visium-corp / visium-online
 │   ├── visium-sandbox   (most migrated workloads; `customer-demo` temp sub-MG)
 │   └── visium-decommissioned   (old Management sub `fe2f1af2`, retiring)
@@ -74,7 +78,9 @@ The management sub's resource providers are registered by the pipeline (SP) befo
 | Region(s), subscriptions, tags, policy tweaks, logging/Sentinel, Defender contact | `management.tfvars` |
 | Management-group hierarchy (IDs, parents) | `lib/architecture_definitions/visium.alz_architecture_definition.yaml` |
 | Per-MG policy posture (online permissive, root tagging) | `lib/archetype_definitions/*_custom.alz_archetype_override.yaml` |
-| Deployment scenario / connectivity type (`none` today; multi-region hub-spoke next) | `management.tfvars` → `connectivity_type` + `variables.connectivity.*.tf` |
+| Deployment scenario / connectivity type (three-region hub & spoke) | `management.tfvars` → `connectivity_type` + `variables.connectivity.*.tf` |
+| Hub regions, address plan, per-hub feature toggles | `management.tfvars` → `starter_locations`, `custom_replacements.names`, `hub_virtual_networks` |
+| Spoke-to-hub peering | `management.tfvars` → `spoke_virtual_network_peerings` + `main.connectivity.spoke.peerings.tf` |
 | Enforce a policy in audit vs enforce | `management.tfvars` → `policy_assignments_to_modify[...].enforcement_mode` |
 | Disable a specific policy assignment | `management.tfvars` → `policy_assignments_to_modify[...].creation_enabled = false` |
 | Provider RP registration on new subs | `.github/workflows/platform-landing-zone.yml` (register step) |
@@ -87,36 +93,150 @@ accelerator. Kept 1:1 with upstream so it stays diffable.
 
 ## Networking
 
-Multi-region **hub & spoke** (`connectivity_type = "hub_and_spoke_vnet"`, AVM
-`avm-ptn-alz-connectivity-hub-and-spoke-vnet`), deployed **minimal** to keep costs
-down. Detailed toggles live in `management.tfvars` (see the table in *Next steps* §1).
+Three-region **hub & spoke** (`connectivity_type = "hub_and_spoke_vnet"`, AVM
+`avm-ptn-alz-connectivity-hub-and-spoke-vnet`) in the dedicated **connectivity
+subscription** `sub-visium-connectivity` (`705238f3-9d51-4fc9-976a-e1859373bdd0`,
+under the `visium-connectivity` MG). Detailed toggles live in `management.tfvars`.
 
-### How it's done now (deployed)
+```
+   ┌────────────────────────────────────────────────────────────────────┐
+   │              sub-visium-connectivity (visium-connectivity)         │
+   │  hub CH North ◀──mesh──▶ hub Sweden Central ◀──mesh──▶ hub France  │
+   │  172.16.0.0/22            172.17.0.0/22             172.18.0.0/22  │
+   └──────────────────────────────┬─────────────────────────────────────┘
+                                  │ spoke_virtual_network_peerings
+                    visium-corp / visium-online spokes
+                    (visium-sandbox stays isolated — peering denied by policy)
+```
 
-Both hub VNets currently land in the **management subscription**
-(`sub-visium-management`) — `subscription_ids.connectivity` points at it, so there is
-**no dedicated connectivity sub yet**.
+### Regions and address plan
 
-| Region | Hub VNet | VNet space | Regional space |
-|---|---|---|---|
-| Primary — **Switzerland North** | `vnet-hub-switzerlandnorth` | `172.16.0.0/22` | `172.16.0.0/16` |
-| Secondary — **Sweden Central** | `vnet-hub-swedencentral` | `172.17.0.0/22` | `172.17.0.0/16` |
+One `/16` per region out of `172.16.0.0/12`; the hub VNet takes the first `/22`
+and spokes are carved from the rest of the same `/16`, so one route covers a
+whole region. Inside each hub VNet, `x.x.0.0/24` is reserved for platform
+services (named and sized whether or not they are deployed) and `x.x.1.0/24`
+onwards is hub workload subnets.
 
-**OFF everywhere** (names reserved, not deployed): Azure Firewall + policy, Bastion,
-VPN gateway, ExpressRoute gateway, DDoS plan, Private DNS zones, Private DNS resolver.
-Hub subnets are empty. **No spokes peered yet** — migrated workloads sit in
-`visium-sandbox`, where `SandboxDenyVnetPeering` **denies peering** (VNets are
-deliberately isolated). The `customer-demo` temp MG has a scoped waiver so its spokes
-can peer to a demo hub.
+| Region | Hub VNet | VNet space | Regional space | Hub subnets |
+|---|---|---|---|---|
+| Primary — **Switzerland North** | `vnet-hub-switzerlandnorth` | `172.16.0.0/22` | `172.16.0.0/16` | `snet-pep` `172.16.1.32/27` (`172.16.1.0/27` reserved for VPN — AZU-8) |
+| Secondary — **Sweden Central** | `vnet-hub-swedencentral` | `172.17.0.0/22` | `172.17.0.0/16` | `snet-pep` `172.17.1.0/27` |
+| Tertiary — **France Central** | `vnet-hub-francecentral` | `172.18.0.0/22` | `172.18.0.0/16` | `snet-pep` `172.18.1.0/27` |
 
-### Target (AZU-14)
+Reserved per hub (deployed only when the matching toggle flips): `AzureFirewallSubnet`
+`x.x.0.0/26`, `AzureBastionSubnet` `x.x.0.64/26`, `GatewaySubnet` `x.x.0.128/27`,
+DNS-resolver `x.x.0.160/28`, `AzureFirewallManagementSubnet` `x.x.0.192/26`.
 
-- **Dedicated connectivity subscription** — split hubs out of the management sub into `visium-connectivity`.
-- **France Central hub** (per Daniel) — additional region + VNet; needs **Azure Firewall + Private DNS**.
-- **Turn on hub services** as need arises: Azure Firewall (+ policy), Bastion, **VPN / ExpressRoute gateway** for hybrid/on-prem, **Private DNS zones + resolver** for Private Link, DDoS plan when justified.
-- **Spoke peering** for corp/online landing zones → hub. **Sandbox stays isolated** (no peering, by policy); read-only outside sandbox.
-- **Hub-to-hub peering** CH North ⇄ Sweden Central ⇄ France Central for DR / cross-region routing.
-- **Tailscale** as the interim/overlay VPN + one consolidated VPN-logging solution (AZU-8).
+> **Known overlap, deliberately left alone.** `vnet01` in Visium Labs
+> (`rg-visium-bench-demo`) is `172.16.0.0/26`, inside the primary hub's space.
+> This is harmless: `visium-sandbox` is isolated by design — `SandboxDenyVnetPeering`
+> and `SandboxNotAllowed` block peering and gateways — and overlapping ranges in
+> VNets that never connect do not interact. It is also in use (it backs a Container
+> Apps managed environment, whose infrastructure subnet cannot be re-addressed after
+> creation), so re-addressing it would mean rebuilding that environment for no
+> benefit. The overlap would only become real if that subscription were promoted out
+> of sandbox into corp/online — which is why address checking belongs in the
+> onboarding checks for a candidate spoke.
+
+### What is on, and what it costs
+
+| Resource | State | Rough cost |
+|---|---|---|
+| 3 hub VNets + hub subnets + mesh peering | **on** | free (peering charges per GB transferred) |
+| Azure Firewall + policy, Bastion, VPN/ExpressRoute gateway, private DNS zones, DNS resolver, DDoS | **off** (named, sized, subnets reserved) | — |
+
+The whole networking change is roughly **60 resources**, about half of them AVM
+telemetry no-ops. That is deliberate: it stays small enough to read a plan line by
+line.
+
+**Turning the France firewall on.** Everything is already named, sized and
+subnetted; in `management.tfvars` set:
+
+```hcl
+tertiary_firewall_enabled              = true
+tertiary_firewall_management_ip_enabled = true   # only for Basic SKU / forced tunnelling
+```
+
+That deploys `fw-hub-francecentral` + `fwp-hub-francecentral` into
+`AzureFirewallSubnet` (`172.18.0.0/26`) and makes the module generate the hub
+route tables. Budget roughly **CHF 900/mo** for Standard plus data processing.
+The same pattern applies to `primary_*` and `secondary_*`. If you turn a firewall
+on, drop `assign_generated_route_table = false` from that hub's subnets so hub
+traffic is actually forced through it.
+
+**Private DNS is off in all three hubs, including France.** The France Central
+workloads — the customer-demo dataplatform spokes `dp-dev-vnt` (`10.121.0.0/20`)
+and `dp-auth-vnt` (`10.125.0.0/24`) — already resolve through the **customer-demo
+hub** (`hub-vnt`, `10.120.0.0/24` in `customer-demo-hub-sub`), which runs its own
+DNS resolver and 9 private DNS zones in `hub-rsg-dns`. Their 13 private endpoints
+use 4 of those zones: `blob`, `dfs`, `vaultcore`, `azuredatabricks`.
+
+Turning the ALZ module's private DNS on here would create a second
+`privatelink.blob.core.windows.net` (and vault, dfs, databricks) next to zones that
+already serve those exact workloads. Two authoritative zones for one name breaks
+resolution as soon as both are linked to a shared VNet, so the platform hubs stay
+out of the way until customer-demo leaves the temporary MG — at which point those
+**9 real zones migrate here**, rather than the module's full 89-zone catalogue
+being instantiated.
+
+To turn it on later, set `tertiary_private_dns_zones_enabled = true` (that also
+creates `rg-hub-dns-francecentral`, which is gated on the same toggle). Decide
+first which hub owns the global zones: exactly one should have
+`private_link_private_dns_zones_regex_filter.enabled = false`; the others must set
+it to `true` so they only create region-scoped zones. Curate the set with
+`private_link_private_dns_zones` rather than accepting all 89 — across the whole
+tenant only 10 service types are actually in use.
+
+### Spoke peering
+
+The hub module meshes the hubs to each other but knows nothing about spokes, so
+`main.connectivity.spoke.peerings.tf` creates both directions of each spoke
+peering through `azapi` (the spoke side lives in the workload's own subscription).
+Add a spoke to `spoke_virtual_network_peerings`:
+
+```hcl
+spoke_virtual_network_peerings = {
+  my-workload = {
+    hub_key                           = "primary"
+    spoke_virtual_network_resource_id = "/subscriptions/…/providers/Microsoft.Network/virtualNetworks/vnet-my-workload"
+  }
+}
+```
+
+It is **empty today on purpose**: every migrated workload currently sits in
+`visium-sandbox`, where `SandboxDenyVnetPeering` blocks peering and isolation is
+deliberate. A spoke becomes eligible once its subscription moves to `visium-corp`
+or `visium-online`. The deploy SP needs write access on the spoke VNet as well as
+the hub.
+
+### One-time migration: hubs from the management sub to the connectivity sub
+
+The hubs were originally deployed into `sub-visium-management`. Pointing
+`subscription_ids.connectivity` at the new sub replaces the hub VNets — `parent_id`
+is ForceNew on an `azapi_resource` — but it does **not** move their resource groups:
+`azurerm_resource_group` is identified by the resource ID already in state, so
+Terraform would go on managing `rg-hub-switzerlandnorth` in the management sub while
+the replacement VNet tried to land in a resource group of that name in the
+connectivity sub, which does not exist. The apply fails with `ResourceGroupNotFound`
+after both hub VNets have already been destroyed.
+
+The fix is the `vnet_*` → `hub_*` key rename in `connectivity_resource_groups`.
+Renaming the map key retires the old address (destroyed at its old ID, in the
+management sub) and introduces a new one (created in the connectivity sub), so the
+move is declarative and the pipeline completes it in a single apply. This matters
+because the deploy SP is the only identity with Storage Blob Data access to the
+state container — nobody can run `terraform state` commands or `-replace` by hand.
+
+Expect the plan to show, for each of the two existing hubs: the VNet replaced, its
+two mesh peerings replaced, the old resource group destroyed and a new one created.
+Both hub VNets are empty — no subnets, no workloads, only the hub-to-hub peering —
+so nothing carrying traffic is destroyed. Afterwards confirm `rg-hub-switzerlandnorth`
+and `rg-hub-swedencentral` are gone from `sub-visium-management` and present in
+`sub-visium-connectivity`.
+
+Also still open: the `customer-demo` France Central hub (`hub-vnt`, `10.120.0.0/24`
+in `customer-demo-hub-sub`) is a separate, temporary hub with its own firewall and
+DNS resolver. It is not peered to the platform hubs and is out of scope here.
 
 ---
 
@@ -158,22 +278,16 @@ diagnostics — additive.
 
 ## Next steps / what's missing
 
-1. **Networking — multi-region hub-and-spoke**
-   (`connectivity_type = "hub_and_spoke_vnet"` in `management.tfvars`). **Minimal by
-   design — everything expensive is off**, so cost is ~€tens/mo (two VNets only).
+1. **Networking** — built out in `management.tfvars`; see **[Networking](#networking)**
+   for the address plan, what is on and what it costs, how to turn the firewall on, and
+   the one-time hub migration into the connectivity subscription. Still deliberately
+   **off**: Azure Firewall, Bastion, VPN/ExpressRoute gateways, private DNS zones and
+   resolver, and the DDoS plan. Also still off platform-wide: Azure Monitor Agent
+   (`management_resource_settings` / policy), monitoring baseline alerts, and Defender
+   for Cloud plans (`policy_assignments_to_modify` → `Deploy-MDFC-Config`).
 
-   | Setting | Decision | Where |
-   |---|---|---|
-   | Scenario | Multi-region hub & spoke (primary + one DR region) | `connectivity_type = "hub_and_spoke_vnet"` |
-   | **Azure Firewall** | **OFF** (keep costs down — NSGs + private endpoints instead). No firewall ⇒ the hub is just a VNet + private DNS (minimal, cheap). | `primary/secondary_firewall_enabled = false` |
-   | Region | ✅ **Confirmed (Pascal, Aug 2026):** primary **Switzerland North** (billing + existing resources + Swiss residency; LAW already here → no churn) + secondary **Sweden Central** (LLM/GPU + DR). | `starter_locations` (primary first) |
-   | Bastion host | **OFF** | `primary/secondary_bastion_enabled = false` |
-   | Private DNS zones | **OFF** — no private endpoints in the new LZ yet; a workload gets its own zone when it creates one (or we add specific zones to the hub then). | `primary/secondary_private_dns_zones_enabled = false` |
-   | Private DNS resolver | **OFF** (cost) | `primary/secondary_private_dns_resolver_enabled = false` |
-   | Virtual network gateways | **OFF** | `..._gateway_express_route_enabled` / `..._vpn_enabled = false` |
-   | DDoS protection plan | **OFF** | `ddos_protection_plan_enabled = false` |
-   | IP address ranges | ✅ **Confirmed (IP meeting, Aug 2026):** use the accelerator's **documented multi-region defaults** — `172.16.0.0/16` (primary) + `172.17.0.0/16` (secondary). Verified non-overlapping (all existing VNets are `10.x`; 172.16/12 is a separate block). | `custom_replacements.names` |
-   | Connectivity subscription | the **Management sub** for now (no dedicated connectivity sub yet) — hub + DNS land there | `subscription_ids.connectivity` |
-   | Azure Monitor Agent (AMA) | **OFF** for now | `management_resource_settings` / policy |
-   | Monitoring baseline alerts | **OFF** for now | management resources |
-   | Defender for Cloud plans | **OFF** for now | `policy_assignments_to_modify` (Deploy-MDFC-Config) |
+   Decisions on record: primary **Switzerland North** (billing, existing resources, Swiss
+   residency — the LAW is already there) + secondary **Sweden Central** (LLM/GPU, DR),
+   confirmed by Pascal Aug 2026; tertiary **France Central** for customer workloads, agreed
+   with Daniel 14/08. Address ranges follow the accelerator's documented multi-region
+   defaults (`172.16.0.0/16` per region), signed off at the Aug 2026 IP meeting.

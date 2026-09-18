@@ -71,9 +71,16 @@ provider "azurerm" {
 }
 
 provider "azurerm" {
+  # Same story as the management subscription: the connectivity sub is greenfield,
+  # so the providers the hubs need aren't registered yet. Register them via the SP
+  # instead of requiring a manual step.
   resource_provider_registrations = "none"
-  alias                           = "connectivity"
-  subscription_id                 = var.subscription_ids["connectivity"]
+  resource_providers_to_register = [
+    "Microsoft.Network",
+    "Microsoft.PolicyInsights",
+  ]
+  alias           = "connectivity"
+  subscription_id = var.subscription_ids["connectivity"]
   features {
     resource_group {
       prevent_deletion_if_contains_resources = false
