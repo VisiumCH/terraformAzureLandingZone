@@ -336,21 +336,21 @@ connectivity_resource_groups = {
       enabled = "$${ddos_protection_plan_enabled}"
     }
   }
-  vnet_primary = {
+  hub_primary = {
     name     = "$${connectivity_hub_primary_resource_group_name}"
     location = "$${starter_location_01}"
     settings = {
       enabled = true
     }
   }
-  vnet_secondary = {
+  hub_secondary = {
     name     = "$${connectivity_hub_secondary_resource_group_name}"
     location = "$${starter_location_02}"
     settings = {
       enabled = true
     }
   }
-  vnet_tertiary = {
+  hub_tertiary = {
     name     = "$${connectivity_hub_tertiary_resource_group_name}"
     location = "$${starter_location_03}"
     settings = {

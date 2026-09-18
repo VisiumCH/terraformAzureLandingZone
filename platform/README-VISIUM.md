@@ -206,24 +206,27 @@ the hub.
 ### One-time migration: hubs from the management sub to the connectivity sub
 
 The hubs were originally deployed into `sub-visium-management`. Pointing
-`subscription_ids.connectivity` at the new sub moves the VNets (their `parent_id`
-changes, which forces replacement) but **not** the resource groups —
+`subscription_ids.connectivity` at the new sub replaces the hub VNets — `parent_id`
+is ForceNew on an `azapi_resource` — but it does **not** move their resource groups:
 `azurerm_resource_group` is identified by the resource ID already in state, so
-Terraform keeps managing the old ones and the new VNets then fail to create with
-`ResourceGroupNotFound`.
+Terraform would go on managing `rg-hub-switzerlandnorth` in the management sub while
+the replacement VNet tried to land in a resource group of that name in the
+connectivity sub, which does not exist. The apply fails with `ResourceGroupNotFound`
+after both hub VNets have already been destroyed.
 
-Check the PR's plan. If it does not show the two hub resource groups being
-replaced, run the migration apply once with an explicit replace:
+The fix is the `vnet_*` → `hub_*` key rename in `connectivity_resource_groups`.
+Renaming the map key retires the old address (destroyed at its old ID, in the
+management sub) and introduces a new one (created in the connectivity sub), so the
+move is declarative and the pipeline completes it in a single apply. This matters
+because the deploy SP is the only identity with Storage Blob Data access to the
+state container — nobody can run `terraform state` commands or `-replace` by hand.
 
-```bash
-terraform plan -var-file=management.tfvars -out=tfplan   -replace='module.resource_groups["vnet_primary"].azurerm_resource_group.this'   -replace='module.resource_groups["vnet_secondary"].azurerm_resource_group.this'
-terraform apply tfplan
-```
-
-Both hub VNets are empty (no subnets, no workloads, only the hub-to-hub peering),
-so the replacement destroys nothing that carries traffic. Afterwards confirm
-`rg-hub-switzerlandnorth` and `rg-hub-swedencentral` no longer exist in
-`sub-visium-management`.
+Expect the plan to show, for each of the two existing hubs: the VNet replaced, its
+two mesh peerings replaced, the old resource group destroyed and a new one created.
+Both hub VNets are empty — no subnets, no workloads, only the hub-to-hub peering —
+so nothing carrying traffic is destroyed. Afterwards confirm `rg-hub-switzerlandnorth`
+and `rg-hub-swedencentral` are gone from `sub-visium-management` and present in
+`sub-visium-connectivity`.
 
 Also still open: the `customer-demo` France Central hub (`hub-vnt`, `10.120.0.0/24`
 in `customer-demo-hub-sub`) is a separate, temporary hub with its own firewall and
